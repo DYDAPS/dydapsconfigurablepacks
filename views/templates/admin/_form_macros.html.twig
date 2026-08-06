@@ -1,0 +1,17 @@
+{% macro form_group(field, canUpdate) %}
+  <div class="form-group">
+    <div class="form-label">
+      {{ form_label(field) }}
+    </div>
+    <div class="form-field">
+      {{ form_widget(field, canUpdate ? {} : { attr: { disabled: 'disabled' } }) }}
+      {{ form_errors(field) }}
+
+      {% if field.vars.help is not empty %}
+        <small class="form-text text-muted">
+          {{ field.vars.help }}
+        </small>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}

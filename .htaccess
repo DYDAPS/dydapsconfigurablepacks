@@ -1,0 +1,13 @@
+Options -Indexes
+
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+<FilesMatch "(?i)\.(log|tpl|yml|yaml|json|xml|lock|md|dist|sh)$">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "(?i)^(composer\.json|composer\.lock|phpstan\.neon|phpunit\.xml|psalm\.xml|\.env|\.gitignore)$">
+    Require all denied
+</FilesMatch>

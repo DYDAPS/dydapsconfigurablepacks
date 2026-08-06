@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en-US" target-language="en-US" datatype="plaintext" original="admin">
+    <body>
+      <trans-unit id="admin.1"><source>DYDAPS - Configurable Packs</source><target>DYDAPS - Configurable Packs</target></trans-unit>
+      <trans-unit id="admin.2"><source>Create and sell configurable product packs.</source><target>Create and sell configurable product packs.</target></trans-unit>
+      <trans-unit id="admin.3"><source>Uninstall module? Pack data can be retained or removed depending on module configuration.</source><target>Uninstall module? Pack data can be retained or removed depending on module configuration.</target></trans-unit>
+      <trans-unit id="admin.4"><source>The modern configuration route is not available. Please clear the Symfony cache.</source><target>The modern configuration route is not available. Please clear the Symfony cache.</target></trans-unit>
+      <trans-unit id="admin.5"><source>Configurable Packs</source><target>Configurable Packs</target></trans-unit>
+      <trans-unit id="admin.6"><source>Configurable pack</source><target>Configurable pack</target></trans-unit>
+      <trans-unit id="admin.7"><source>Manage this product pack configuration from the DYDAPS configurable packs page.</source><target>Manage this product pack configuration from the DYDAPS configurable packs page.</target></trans-unit>
+      <trans-unit id="admin.8"><source>Open pack manager</source><target>Open pack manager</target></trans-unit>
+      <trans-unit id="admin.9"><source>Create pack definitions from native products, then configure components and allowed combinations.</source><target>Create pack definitions from native products, then configure components and allowed combinations.</target></trans-unit>
+      <trans-unit id="admin.10"><source>ID</source><target>ID</target></trans-unit>
+      <trans-unit id="admin.11"><source>Image</source><target>Image</target></trans-unit>
+      <trans-unit id="admin.12"><source>Name</source><target>Name</target></trans-unit>
+      <trans-unit id="admin.13"><source>Reference</source><target>Reference</target></trans-unit>
+      <trans-unit id="admin.14"><source>Shop</source><target>Shop</target></trans-unit>
+      <trans-unit id="admin.15"><source>Pack type</source><target>Pack type</target></trans-unit>
+      <trans-unit id="admin.16"><source>Components</source><target>Components</target></trans-unit>
+      <trans-unit id="admin.17"><source>Pricing method</source><target>Pricing method</target></trans-unit>
+      <trans-unit id="admin.18"><source>Price</source><target>Price</target></trans-unit>
+      <trans-unit id="admin.19"><source>Availability</source><target>Availability</target></trans-unit>
+      <trans-unit id="admin.20"><source>Status</source><target>Status</target></trans-unit>
+      <trans-unit id="admin.21"><source>Last update</source><target>Last update</target></trans-unit>
+      <trans-unit id="admin.22"><source>Actions</source><target>Actions</target></trans-unit>
+      <trans-unit id="admin.23"><source>Enable / disable</source><target>Enable / disable</target></trans-unit>
+      <trans-unit id="admin.24"><source>Delete configuration</source><target>Delete configuration</target></trans-unit>
+      <trans-unit id="admin.25"><source>Delete this pack configuration?</source><target>Delete this pack configuration?</target></trans-unit>
+      <trans-unit id="admin.26"><source>Search by name or reference</source><target>Search by name or reference</target></trans-unit>
+      <trans-unit id="admin.27"><source>Fixed price</source><target>Fixed price</target></trans-unit>
+      <trans-unit id="admin.28"><source>Component sum</source><target>Component sum</target></trans-unit>
+      <trans-unit id="admin.29"><source>Percentage discount</source><target>Percentage discount</target></trans-unit>
+      <trans-unit id="admin.30"><source>Fixed discount</source><target>Fixed discount</target></trans-unit>
+      <trans-unit id="admin.31"><source>Forced price</source><target>Forced price</target></trans-unit>
+      <trans-unit id="admin.32"><source>Pack status updated.</source><target>Pack status updated.</target></trans-unit>
+      <trans-unit id="admin.33"><source>Pack configuration deleted.</source><target>Pack configuration deleted.</target></trans-unit>
+      <trans-unit id="admin.34"><source>Packs</source><target>Packs</target></trans-unit>
+      <trans-unit id="admin.35"><source>Create</source><target>Create</target></trans-unit>
+      <trans-unit id="admin.36"><source>Pack product ID</source><target>Pack product ID</target></trans-unit>
+      <trans-unit id="admin.37"><source>Native PrestaShop product that will be sold as a configurable pack.</source><target>Native PrestaShop product that will be sold as a configurable pack.</target></trans-unit>
+      <trans-unit id="admin.38"><source>Enable configurable-pack mode</source><target>Enable configurable-pack mode</target></trans-unit>
+      <trans-unit id="admin.39"><source>Fixed components</source><target>Fixed components</target></trans-unit>
+      <trans-unit id="admin.40"><source>Choice groups</source><target>Choice groups</target></trans-unit>
+      <trans-unit id="admin.41"><source>Steps</source><target>Steps</target></trans-unit>
+      <trans-unit id="admin.42"><source>Fixed price tax excluded</source><target>Fixed price tax excluded</target></trans-unit>
+      <trans-unit id="admin.43"><source>Forced final price tax excluded</source><target>Forced final price tax excluded</target></trans-unit>
+      <trans-unit id="admin.44"><source>Global discount percent</source><target>Global discount percent</target></trans-unit>
+      <trans-unit id="admin.45"><source>Global fixed discount tax excluded</source><target>Global fixed discount tax excluded</target></trans-unit>
+      <trans-unit id="admin.46"><source>Stock behavior</source><target>Stock behavior</target></trans-unit>
+      <trans-unit id="admin.47"><source>Validate and decrement components</source><target>Validate and decrement components</target></trans-unit>
+      <trans-unit id="admin.48"><source>Validate components only</source><target>Validate components only</target></trans-unit>
+      <trans-unit id="admin.49"><source>Pack configuration not found.</source><target>Pack configuration not found.</target></trans-unit>
+      <trans-unit id="admin.50"><source>Pack configuration saved.</source><target>Pack configuration saved.</target></trans-unit>
+      <trans-unit id="admin.51"><source>Edit pack</source><target>Edit pack</target></trans-unit>
+      <trans-unit id="admin.52"><source>Create pack</source><target>Create pack</target></trans-unit>
+      <trans-unit id="admin.53"><source>Cancel</source><target>Cancel</target></trans-unit>
+      <trans-unit id="admin.54"><source>Save</source><target>Save</target></trans-unit>
+      <trans-unit id="admin.55"><source>Edit</source><target>Edit</target></trans-unit>
+    </body>
+  </file>
+</xliff>

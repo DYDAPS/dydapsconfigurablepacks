@@ -1,0 +1,31 @@
+{% trans_default_domain 'Modules.Dydapsconfigurablepacks.Admin' %}
+
+{% set tabs = [
+  { key: 'packs', label: 'Packs', route: 'dydaps_configurable_packs_index', controller: 'AdminDydapsConfigurablePacks' },
+  { key: 'new', label: 'Create', route: 'dydaps_configurable_packs_create', controller: 'AdminDydapsConfigurablePacks' }
+] %}
+
+{% set visibleTabs = [] %}
+
+{% for tab in tabs %}
+  {% if is_granted('read', tab.controller) %}
+    {% set visibleTabs = visibleTabs|merge([tab]) %}
+  {% endif %}
+{% endfor %}
+
+{% set activeKey = active ?? '' %}
+{% if visibleTabs is not empty and (visibleTabs|filter(t => t.key == activeKey)|length) == 0 %}
+  {% set activeKey = visibleTabs[0].key %}
+{% endif %}
+
+{% if visibleTabs is not empty %}
+  <ul class="nav nav-tabs mb-3">
+    {% for tab in visibleTabs %}
+      <li class="nav-item">
+        <a class="nav-link {{ activeKey == tab.key ? 'active' : '' }}" href="{{ path(tab.route) }}">
+          {{ tab.label|trans }}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

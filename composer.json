@@ -1,0 +1,22 @@
+{
+    "name": "dydaps/configurable-packs",
+    "version": "1.0.0",
+    "description": "Configurable product packs for PrestaShop",
+    "type": "prestashop-module",
+    "license": "OSL-3.0",
+    "autoload": {
+        "psr-4": {
+            "Dydaps\\ConfigurablePacks\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "prestashop/php-dev-tools": "^5.0",
+        "friendsofphp/php-cs-fixer": "^3.94"
+    },
+    "config": {
+        "prepend-autoloader": false
+    }
+}
