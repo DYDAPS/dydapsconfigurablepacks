@@ -1,0 +1,24 @@
+{% extends '@PrestaShop/Admin/layout.html.twig' %}
+
+{% block content %}
+  {% include '@Modules/dydapsconfigurablepacks/views/templates/admin/_tabs.html.twig' with {'active': active} %}
+
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h3 class="card-header">
+          {{ 'Configurable Packs'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+        </h3>
+        <div class="card-body">
+          {{ 'Create pack definitions from native products, then configure components and allowed combinations.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+        </div>
+      </div>
+      {% include '@PrestaShop/Admin/Common/Grid/grid_panel.html.twig' with {'grid': grid} %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script src="{{ asset('../modules/dydapsconfigurablepacks/views/js/admin-grid.js') }}"></script>
+{% endblock %}

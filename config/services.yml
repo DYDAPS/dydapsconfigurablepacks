@@ -1,0 +1,162 @@
+services:
+  _defaults: { }
+
+  dydaps.configurable_packs.repository.pack:
+    class: 'Dydaps\ConfigurablePacks\Repository\PackRepository'
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  dydaps.configurable_packs.repository.cart:
+    class: 'Dydaps\ConfigurablePacks\Repository\PackCartRepository'
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  dydaps.configurable_packs.repository.order:
+    class: 'Dydaps\ConfigurablePacks\Repository\PackOrderRepository'
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  dydaps.configurable_packs.repository.stock:
+    class: 'Dydaps\ConfigurablePacks\Repository\PackStockRepository'
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  dydaps.configurable_packs.service.hash:
+    class: 'Dydaps\ConfigurablePacks\Service\PackConfigurationHashGenerator'
+    public: true
+
+  dydaps.configurable_packs.service.discount_allocator:
+    class: 'Dydaps\ConfigurablePacks\Service\PackDiscountAllocator'
+    public: true
+
+  dydaps.configurable_packs.service.configuration:
+    class: 'Dydaps\ConfigurablePacks\Service\PackConfigurationService'
+    public: true
+
+  dydaps.configurable_packs.service.price_calculator:
+    class: 'Dydaps\ConfigurablePacks\Service\PackPriceCalculator'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.repository.pack'
+      - '@dydaps.configurable_packs.service.discount_allocator'
+
+  dydaps.configurable_packs.service.stock_calculator:
+    class: 'Dydaps\ConfigurablePacks\Service\PackStockCalculator'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.repository.stock'
+
+  dydaps.configurable_packs.service.availability:
+    class: 'Dydaps\ConfigurablePacks\Service\PackAvailabilityService'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.service.stock_calculator'
+
+  dydaps.configurable_packs.validator.configuration:
+    class: 'Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.repository.pack'
+
+  dydaps.configurable_packs.service.cart:
+    class: 'Dydaps\ConfigurablePacks\Service\PackCartService'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.repository.cart'
+      - '@dydaps.configurable_packs.service.hash'
+      - '@dydaps.configurable_packs.service.price_calculator'
+      - '@dydaps.configurable_packs.service.availability'
+      - '@dydaps.configurable_packs.validator.configuration'
+
+  dydaps.configurable_packs.service.snapshot:
+    class: 'Dydaps\ConfigurablePacks\Service\PackSnapshotService'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.repository.pack'
+      - '@dydaps.configurable_packs.repository.order'
+      - '@dydaps.configurable_packs.service.price_calculator'
+
+  dydaps.configurable_packs.service.stock_movement:
+    class: 'Dydaps\ConfigurablePacks\Service\PackStockMovementService'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.repository.order'
+      - '@dydaps.configurable_packs.repository.stock'
+
+  dydaps.configurable_packs.service.order:
+    class: 'Dydaps\ConfigurablePacks\Service\PackOrderService'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.repository.cart'
+      - '@dydaps.configurable_packs.service.snapshot'
+      - '@dydaps.configurable_packs.service.stock_movement'
+
+  dydaps.configurable_packs.service.refund:
+    class: 'Dydaps\ConfigurablePacks\Service\PackRefundService'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.repository.order'
+      - '@dydaps.configurable_packs.service.stock_movement'
+
+  PrestaShop\PrestaShop\Core\Grid\Query\DoctrineSearchCriteriaApplicatorInterface:
+    alias: 'prestashop.core.query.doctrine_search_criteria_applicator'
+    public: false
+
+  dydaps.configurable_packs.grid.definition.packs:
+    class: 'Dydaps\ConfigurablePacks\Grid\Definition\Factory\PackGridDefinitionFactory'
+    parent: 'prestashop.core.grid.definition.factory.abstract_grid_definition'
+    public: true
+
+  dydaps.configurable_packs.grid.query.packs:
+    class: 'Dydaps\ConfigurablePacks\Grid\Query\PackQueryBuilder'
+    public: true
+    arguments:
+      $connection: '@database_connection'
+      $dbPrefix: '%database_prefix%'
+      $legacyContext: '@prestashop.adapter.legacy.context'
+
+  dydaps.configurable_packs.grid.data_provider.packs:
+    class: '%prestashop.core.grid.data.factory.doctrine_grid_data_factory%'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.grid.query.packs'
+      - '@prestashop.core.hook.dispatcher'
+      - '@prestashop.core.grid.query.doctrine_query_parser'
+      - 'dydaps_configurable_packs'
+
+  dydaps.configurable_packs.grid.factory.packs:
+    class: 'PrestaShop\PrestaShop\Core\Grid\GridFactory'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.grid.definition.packs'
+      - '@dydaps.configurable_packs.grid.data_provider.packs'
+      - '@prestashop.core.grid.filter.form_factory'
+      - '@prestashop.core.hook.dispatcher'
+
+  dydaps.configurable_packs.controller.admin.pack:
+    class: 'Dydaps\ConfigurablePacks\Controller\Admin\PackController'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.grid.factory.packs'
+      - '@prestashop.core.grid.presenter.grid_presenter'
+      - '@dydaps.configurable_packs.repository.pack'
+      - '@translator'
+
+  dydaps.configurable_packs.form.general:
+    class: 'Dydaps\ConfigurablePacks\Form\PackGeneralType'
+    parent: 'form.type.translatable.aware'
+    public: true
+    tags:
+      - { name: 'form.type' }
+
+  dydaps.configurable_packs.controller.front.ajax:
+    class: 'Dydaps\ConfigurablePacks\Controller\Front\AjaxController'
+    public: true
+    arguments:
+      - '@dydaps.configurable_packs.service.configuration'
+      - '@dydaps.configurable_packs.service.cart'
+      - '@dydaps.configurable_packs.repository.pack'

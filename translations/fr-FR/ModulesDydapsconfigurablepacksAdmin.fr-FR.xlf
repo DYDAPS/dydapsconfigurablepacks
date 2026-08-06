@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en-US" target-language="fr-FR" datatype="plaintext" original="admin">
+    <body>
+      <trans-unit id="admin.1"><source>DYDAPS - Configurable Packs</source><target>DYDAPS - Packs configurables</target></trans-unit>
+      <trans-unit id="admin.2"><source>Create and sell configurable product packs.</source><target>Créez et vendez des packs de produits configurables.</target></trans-unit>
+      <trans-unit id="admin.3"><source>Uninstall module? Pack data can be retained or removed depending on module configuration.</source><target>Désinstaller le module ? Les données des packs peuvent être conservées ou supprimées selon la configuration du module.</target></trans-unit>
+      <trans-unit id="admin.4"><source>The modern configuration route is not available. Please clear the Symfony cache.</source><target>La route de configuration moderne n’est pas disponible. Veuillez vider le cache Symfony.</target></trans-unit>
+      <trans-unit id="admin.5"><source>Configurable Packs</source><target>Packs configurables</target></trans-unit>
+      <trans-unit id="admin.6"><source>Configurable pack</source><target>Pack configurable</target></trans-unit>
+      <trans-unit id="admin.7"><source>Manage this product pack configuration from the DYDAPS configurable packs page.</source><target>Gérez la configuration de ce pack depuis la page DYDAPS des packs configurables.</target></trans-unit>
+      <trans-unit id="admin.8"><source>Open pack manager</source><target>Ouvrir le gestionnaire de packs</target></trans-unit>
+      <trans-unit id="admin.9"><source>Create pack definitions from native products, then configure components and allowed combinations.</source><target>Créez les définitions de packs depuis des produits natifs, puis configurez les composants et les déclinaisons autorisées.</target></trans-unit>
+      <trans-unit id="admin.10"><source>ID</source><target>ID</target></trans-unit>
+      <trans-unit id="admin.11"><source>Image</source><target>Image</target></trans-unit>
+      <trans-unit id="admin.12"><source>Name</source><target>Nom</target></trans-unit>
+      <trans-unit id="admin.13"><source>Reference</source><target>Référence</target></trans-unit>
+      <trans-unit id="admin.14"><source>Shop</source><target>Boutique</target></trans-unit>
+      <trans-unit id="admin.15"><source>Pack type</source><target>Type de pack</target></trans-unit>
+      <trans-unit id="admin.16"><source>Components</source><target>Composants</target></trans-unit>
+      <trans-unit id="admin.17"><source>Pricing method</source><target>Méthode de prix</target></trans-unit>
+      <trans-unit id="admin.18"><source>Price</source><target>Prix</target></trans-unit>
+      <trans-unit id="admin.19"><source>Availability</source><target>Disponibilité</target></trans-unit>
+      <trans-unit id="admin.20"><source>Status</source><target>Statut</target></trans-unit>
+      <trans-unit id="admin.21"><source>Last update</source><target>Dernière mise à jour</target></trans-unit>
+      <trans-unit id="admin.22"><source>Actions</source><target>Actions</target></trans-unit>
+      <trans-unit id="admin.23"><source>Enable / disable</source><target>Activer / désactiver</target></trans-unit>
+      <trans-unit id="admin.24"><source>Delete configuration</source><target>Supprimer la configuration</target></trans-unit>
+      <trans-unit id="admin.25"><source>Delete this pack configuration?</source><target>Supprimer cette configuration de pack ?</target></trans-unit>
+      <trans-unit id="admin.26"><source>Search by name or reference</source><target>Rechercher par nom ou référence</target></trans-unit>
+      <trans-unit id="admin.27"><source>Fixed price</source><target>Prix fixe</target></trans-unit>
+      <trans-unit id="admin.28"><source>Component sum</source><target>Somme des composants</target></trans-unit>
+      <trans-unit id="admin.29"><source>Percentage discount</source><target>Remise en pourcentage</target></trans-unit>
+      <trans-unit id="admin.30"><source>Fixed discount</source><target>Remise fixe</target></trans-unit>
+      <trans-unit id="admin.31"><source>Forced price</source><target>Prix forcé</target></trans-unit>
+      <trans-unit id="admin.32"><source>Pack status updated.</source><target>Statut du pack mis à jour.</target></trans-unit>
+      <trans-unit id="admin.33"><source>Pack configuration deleted.</source><target>Configuration du pack supprimée.</target></trans-unit>
+      <trans-unit id="admin.34"><source>Packs</source><target>Packs</target></trans-unit>
+      <trans-unit id="admin.35"><source>Create</source><target>Créer</target></trans-unit>
+      <trans-unit id="admin.36"><source>Pack product ID</source><target>ID du produit pack</target></trans-unit>
+      <trans-unit id="admin.37"><source>Native PrestaShop product that will be sold as a configurable pack.</source><target>Produit natif PrestaShop qui sera vendu comme pack configurable.</target></trans-unit>
+      <trans-unit id="admin.38"><source>Enable configurable-pack mode</source><target>Activer le mode pack configurable</target></trans-unit>
+      <trans-unit id="admin.39"><source>Fixed components</source><target>Composants fixes</target></trans-unit>
+      <trans-unit id="admin.40"><source>Choice groups</source><target>Groupes de choix</target></trans-unit>
+      <trans-unit id="admin.41"><source>Steps</source><target>Étapes</target></trans-unit>
+      <trans-unit id="admin.42"><source>Fixed price tax excluded</source><target>Prix fixe hors taxes</target></trans-unit>
+      <trans-unit id="admin.43"><source>Forced final price tax excluded</source><target>Prix final forcé hors taxes</target></trans-unit>
+      <trans-unit id="admin.44"><source>Global discount percent</source><target>Pourcentage de remise globale</target></trans-unit>
+      <trans-unit id="admin.45"><source>Global fixed discount tax excluded</source><target>Remise fixe globale hors taxes</target></trans-unit>
+      <trans-unit id="admin.46"><source>Stock behavior</source><target>Comportement du stock</target></trans-unit>
+      <trans-unit id="admin.47"><source>Validate and decrement components</source><target>Valider et décrémenter les composants</target></trans-unit>
+      <trans-unit id="admin.48"><source>Validate components only</source><target>Valider uniquement les composants</target></trans-unit>
+      <trans-unit id="admin.49"><source>Pack configuration not found.</source><target>Configuration du pack introuvable.</target></trans-unit>
+      <trans-unit id="admin.50"><source>Pack configuration saved.</source><target>Configuration du pack enregistrée.</target></trans-unit>
+      <trans-unit id="admin.51"><source>Edit pack</source><target>Modifier le pack</target></trans-unit>
+      <trans-unit id="admin.52"><source>Create pack</source><target>Créer un pack</target></trans-unit>
+      <trans-unit id="admin.53"><source>Cancel</source><target>Annuler</target></trans-unit>
+      <trans-unit id="admin.54"><source>Save</source><target>Enregistrer</target></trans-unit>
+      <trans-unit id="admin.55"><source>Edit</source><target>Modifier</target></trans-unit>
+    </body>
+  </file>
+</xliff>

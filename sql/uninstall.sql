@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_refund`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_stock_operation`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_order_component`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_order`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_cart`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_component_product`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_component_lang`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_component`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack_lang`;
+DROP TABLE IF EXISTS `PREFIX_dydaps_pack`;

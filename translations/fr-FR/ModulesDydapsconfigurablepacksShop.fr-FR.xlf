@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en-US" target-language="fr-FR" datatype="plaintext" original="shop">
+    <body>
+      <trans-unit id="shop.1"><source>Configure your pack</source><target>Configurez votre pack</target></trans-unit>
+      <trans-unit id="shop.2"><source>Add configured pack to cart</source><target>Ajouter le pack configuré au panier</target></trans-unit>
+      <trans-unit id="shop.3"><source>Configurable packs</source><target>Packs configurables</target></trans-unit>
+      <trans-unit id="shop.4"><source>Unknown action.</source><target>Action inconnue.</target></trans-unit>
+      <trans-unit id="shop.5"><source>Pack not found.</source><target>Pack introuvable.</target></trans-unit>
+      <trans-unit id="shop.6"><source>Invalid pack configuration.</source><target>Configuration de pack invalide.</target></trans-unit>
+    </body>
+  </file>
+</xliff>

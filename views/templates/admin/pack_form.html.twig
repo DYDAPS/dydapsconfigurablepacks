@@ -1,0 +1,34 @@
+{% extends '@PrestaShop/Admin/layout.html.twig' %}
+{% import '@Modules/dydapsconfigurablepacks/views/templates/admin/_form_macros.html.twig' as dydapsForms %}
+
+{% block content %}
+  {% include '@Modules/dydapsconfigurablepacks/views/templates/admin/_tabs.html.twig' with {'active': active} %}
+
+  <div class="card">
+    <h3 class="card-header">
+      {{ layoutTitle }}
+    </h3>
+    <div class="card-body">
+      {{ form_start(form) }}
+      {{ dydapsForms.form_group(form.id_product, canUpdate) }}
+      {{ dydapsForms.form_group(form.active, canUpdate) }}
+      {{ dydapsForms.form_group(form.pack_type, canUpdate) }}
+      {{ dydapsForms.form_group(form.pricing_method, canUpdate) }}
+      {{ dydapsForms.form_group(form.fixed_price_tax_excl, canUpdate) }}
+      {{ dydapsForms.form_group(form.forced_price_tax_excl, canUpdate) }}
+      {{ dydapsForms.form_group(form.global_discount_percent, canUpdate) }}
+      {{ dydapsForms.form_group(form.global_discount_amount_tax_excl, canUpdate) }}
+      {{ dydapsForms.form_group(form.stock_behavior, canUpdate) }}
+
+      <div class="card-footer">
+        <a class="btn btn-outline-secondary" href="{{ path('dydaps_configurable_packs_index') }}">
+          {{ 'Cancel'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+        </a>
+        <button class="btn btn-primary" type="submit">
+          {{ 'Save'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+        </button>
+      </div>
+      {{ form_end(form) }}
+    </div>
+  </div>
+{% endblock %}
