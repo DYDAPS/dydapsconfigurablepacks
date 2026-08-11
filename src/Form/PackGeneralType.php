@@ -17,9 +17,9 @@ use Dydaps\ConfigurablePacks\Config\PackConfig;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
-use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\GreaterThan;
@@ -119,11 +119,9 @@ final class PackGeneralType extends TranslatorAwareType
                     $this->trans('Validate components only', 'Modules.Dydapsconfigurablepacks.Admin') => 'validate_only',
                 ],
             ])
-            ->add('components_json', TextareaType::class, [
+            ->add('components_json', HiddenType::class, [
                 'label' => $this->trans('Pack component definition', 'Modules.Dydapsconfigurablepacks.Admin'),
                 'required' => false,
-                'attr' => ['rows' => 16, 'class' => 'monospace'],
-                'help' => $this->trans('Define components, allowed products, allowed combinations, defaults, quantities and pricing behavior as JSON.', 'Modules.Dydapsconfigurablepacks.Admin'),
             ]);
     }
 

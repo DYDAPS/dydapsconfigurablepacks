@@ -10,6 +10,7 @@ use Dydaps\ConfigurablePacks\Form\PackGeneralType;
 use PrestaShop\PrestaShop\Core\Grid\GridFactoryInterface;
 use PrestaShop\PrestaShop\Core\Grid\Presenter\GridPresenterInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -166,6 +167,32 @@ final class PackController extends AbstractDydapsAdminController
     }
 
     /**
+     * Search products and combinations available to the current shop.
+     *
+     * @param Request $request Current admin request.
+     *
+     * @return JsonResponse Product choices usable by the component builder.
+     */
+    public function productSearch(Request $request): JsonResponse
+    {
+        $this->denyRead($request);
+
+        $query = trim((string) $request->query->get('q', ''));
+        if (\Tools::strlen($query) < 2) {
+            return new JsonResponse(['ok' => true, 'products' => []]);
+        }
+
+        return new JsonResponse([
+            'ok' => true,
+            'products' => $this->repository->searchProductsForBuilder(
+                $query,
+                (int) \Context::getContext()->shop->id,
+                (int) \Context::getContext()->language->id
+            ),
+        ]);
+    }
+
+    /**
      * Render and process the general pack form.
      *
      * @param Request $request Current admin request.
@@ -205,6 +232,14 @@ final class PackController extends AbstractDydapsAdminController
 
                 return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
             }
+            $errors = $this->validateComponentsForSave($components);
+            if ($errors) {
+                foreach ($errors as $error) {
+                    $this->addFlash('error', $error);
+                }
+
+                return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
+            }
             unset($payload['components_json']);
             $idPack = $this->repository->savePack($payload);
             $this->repository->replaceComponents($idPack, array_values($components), (int) \Context::getContext()->language->id);
@@ -219,6 +254,60 @@ final class PackController extends AbstractDydapsAdminController
             'form' => $form->createView(),
             'canUpdate' => true,
         ]);
+    }
+
+    /**
+     * Validate component builder payload before replacing persisted components.
+     *
+     * @param array<int, mixed> $components Submitted component payload.
+     *
+     * @return list<string> Translated validation errors.
+     */
+    private function validateComponentsForSave(array $components): array
+    {
+        $errors = [];
+        if (!$components) {
+            return [$this->t('Add at least one pack component.', 'Modules.Dydapsconfigurablepacks.Admin')];
+        }
+
+        foreach (array_values($components) as $index => $component) {
+            if (!is_array($component)) {
+                $errors[] = $this->t('A pack component is invalid.', 'Modules.Dydapsconfigurablepacks.Admin');
+                continue;
+            }
+
+            $label = (string) ($component['name'] ?? '');
+            if (trim($label) === '') {
+                $errors[] = $this->t('Each pack component needs a name.', 'Modules.Dydapsconfigurablepacks.Admin');
+            }
+
+            $quantity = (int) ($component['quantity'] ?? 0);
+            $min = (int) ($component['min_quantity'] ?? 0);
+            $max = (int) ($component['max_quantity'] ?? 0);
+            if ($quantity <= 0 || $min < 0 || $max <= 0 || $min > $max || $quantity < $min || $quantity > $max) {
+                $errors[] = $this->t('Component quantities must stay within their minimum and maximum values.', 'Modules.Dydapsconfigurablepacks.Admin');
+            }
+
+            $products = array_values(array_filter((array) ($component['products'] ?? []), static function ($product): bool {
+                return is_array($product) && (int) ($product['id_product'] ?? 0) > 0;
+            }));
+            if (!$products) {
+                $errors[] = $this->t('Each pack component needs at least one selectable product.', 'Modules.Dydapsconfigurablepacks.Admin');
+                continue;
+            }
+
+            $defaultCount = 0;
+            foreach ($products as $product) {
+                if (!empty($product['is_default'])) {
+                    ++$defaultCount;
+                }
+            }
+            if ($defaultCount !== 1) {
+                $errors[] = $this->t('Each pack component needs exactly one default product.', 'Modules.Dydapsconfigurablepacks.Admin');
+            }
+        }
+
+        return array_values(array_unique($errors));
     }
 
     /**

@@ -58,8 +58,35 @@
       <trans-unit id="save"><source>Save</source><target>Save</target></trans-unit>
       <trans-unit id="edit"><source>Edit</source><target>Edit</target></trans-unit>
       <trans-unit id="pack_component_definition"><source>Pack component definition</source><target>Pack component definition</target></trans-unit>
-      <trans-unit id="components_json_help"><source>Define components, allowed products, allowed combinations, defaults, quantities and pricing behavior as JSON.</source><target>Define components, allowed products, allowed combinations, defaults, quantities and pricing behavior as JSON.</target></trans-unit>
       <trans-unit id="pack_component_definition_invalid"><source>The pack component definition is invalid.</source><target>The pack component definition is invalid.</target></trans-unit>
+      <trans-unit id="component"><source>Component</source><target>Component</target></trans-unit>
+      <trans-unit id="pack_components"><source>Pack components</source><target>Pack components</target></trans-unit>
+      <trans-unit id="component_builder_help"><source>Choose the products and combinations available for each configurable pack component.</source><target>Choose the products and combinations available for each configurable pack component.</target></trans-unit>
+      <trans-unit id="add_component"><source>Add component</source><target>Add component</target></trans-unit>
+      <trans-unit id="search_product_or_reference"><source>Search product or reference</source><target>Search product or reference</target></trans-unit>
+      <trans-unit id="add_product"><source>Add product</source><target>Add product</target></trans-unit>
+      <trans-unit id="remove"><source>Remove</source><target>Remove</target></trans-unit>
+      <trans-unit id="default"><source>Default</source><target>Default</target></trans-unit>
+      <trans-unit id="required"><source>Required</source><target>Required</target></trans-unit>
+      <trans-unit id="optional"><source>Optional</source><target>Optional</target></trans-unit>
+      <trans-unit id="component_name"><source>Component name</source><target>Component name</target></trans-unit>
+      <trans-unit id="quantity"><source>Quantity</source><target>Quantity</target></trans-unit>
+      <trans-unit id="minimum"><source>Minimum</source><target>Minimum</target></trans-unit>
+      <trans-unit id="maximum"><source>Maximum</source><target>Maximum</target></trans-unit>
+      <trans-unit id="pricing_behavior"><source>Pricing behavior</source><target>Pricing behavior</target></trans-unit>
+      <trans-unit id="native_price"><source>Native price</source><target>Native price</target></trans-unit>
+      <trans-unit id="discount_percent"><source>Discount percent</source><target>Discount percent</target></trans-unit>
+      <trans-unit id="surcharge_tax_excluded"><source>Surcharge tax excluded</source><target>Surcharge tax excluded</target></trans-unit>
+      <trans-unit id="no_products_selected"><source>No products selected yet.</source><target>No products selected yet.</target></trans-unit>
+      <trans-unit id="no_matching_products"><source>No matching products found.</source><target>No matching products found.</target></trans-unit>
+      <trans-unit id="move_up"><source>Move up</source><target>Move up</target></trans-unit>
+      <trans-unit id="move_down"><source>Move down</source><target>Move down</target></trans-unit>
+      <trans-unit id="add_component_error"><source>Add at least one pack component.</source><target>Add at least one pack component.</target></trans-unit>
+      <trans-unit id="invalid_component_error"><source>A pack component is invalid.</source><target>A pack component is invalid.</target></trans-unit>
+      <trans-unit id="component_name_error"><source>Each pack component needs a name.</source><target>Each pack component needs a name.</target></trans-unit>
+      <trans-unit id="component_quantity_error"><source>Component quantities must stay within their minimum and maximum values.</source><target>Component quantities must stay within their minimum and maximum values.</target></trans-unit>
+      <trans-unit id="component_products_error"><source>Each pack component needs at least one selectable product.</source><target>Each pack component needs at least one selectable product.</target></trans-unit>
+      <trans-unit id="component_default_error"><source>Each pack component needs exactly one default product.</source><target>Each pack component needs exactly one default product.</target></trans-unit>
     </body>
   </file>
 </xliff>

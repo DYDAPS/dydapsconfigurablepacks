@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 - 2026-08-11
+
+- Added a visual back-office component builder for configurable pack definitions.
+- Added product and combination search for pack component selection.
+- Added server-side validation for builder payloads before component persistence.
+- Improved back-office component labels so merchants no longer need to edit JSON manually.
+- Kept full declared compatibility scoped to PrestaShop 8.1 or later.
+
 ## 1.0.1 - 2026-08-11
 
 - Fixed native customization-backed cart separation for multiple configurations of the same pack product.

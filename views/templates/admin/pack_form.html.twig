@@ -19,7 +19,46 @@
       {{ dydapsForms.form_group(form.global_discount_percent, canUpdate) }}
       {{ dydapsForms.form_group(form.global_discount_amount_tax_excl, canUpdate) }}
       {{ dydapsForms.form_group(form.stock_behavior, canUpdate) }}
-      {{ dydapsForms.form_group(form.components_json, canUpdate) }}
+      {{ form_widget(form.components_json) }}
+
+      <div
+        class="dydaps-pack-builder"
+        data-pack-builder
+        data-products-url="{{ path('dydaps_configurable_packs_product_search') }}"
+        data-can-update="{{ canUpdate ? '1' : '0' }}"
+        data-label-component="{{ 'Component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-add-component="{{ 'Add component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-search-product="{{ 'Search product or reference'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-add-product="{{ 'Add product'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-remove="{{ 'Remove'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-default="{{ 'Default'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-required="{{ 'Required'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-optional="{{ 'Optional'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-name="{{ 'Component name'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-quantity="{{ 'Quantity'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-min="{{ 'Minimum'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-max="{{ 'Maximum'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-pricing="{{ 'Pricing behavior'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-native="{{ 'Native price'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-fixed="{{ 'Fixed price tax excluded'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-discount="{{ 'Discount percent'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-surcharge="{{ 'Surcharge tax excluded'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-no-products="{{ 'No products selected yet.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-no-results="{{ 'No matching products found.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-up="{{ 'Move up'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-down="{{ 'Move down'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+      >
+        <div class="dydaps-pack-builder__header">
+          <h4>{{ 'Pack components'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+          <button type="button" class="btn btn-outline-primary" data-pack-builder-add-component>
+            {{ 'Add component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+          </button>
+        </div>
+        <p class="text-muted">
+          {{ 'Choose the products and combinations available for each configurable pack component.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+        </p>
+        <div data-pack-builder-components></div>
+      </div>
 
       <div class="card-footer">
         <a class="btn btn-outline-secondary" href="{{ path('dydaps_configurable_packs_index') }}">
@@ -32,4 +71,14 @@
       {{ form_end(form) }}
     </div>
   </div>
+{% endblock %}
+
+{% block stylesheets %}
+  {{ parent() }}
+  <link rel="stylesheet" href="{{ asset('../modules/dydapsconfigurablepacks/views/css/admin-pack-builder.css') }}">
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script src="{{ asset('../modules/dydapsconfigurablepacks/views/js/admin-pack-builder.js') }}"></script>
 {% endblock %}

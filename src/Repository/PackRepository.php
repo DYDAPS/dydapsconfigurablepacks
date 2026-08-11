@@ -179,7 +179,21 @@ final class PackRepository
     {
         $components = $this->getComponents($idPack, $idLang);
         foreach ($components as &$component) {
-            $component['products'] = $this->getAllowedSelections((int) $component['id_component']);
+            $products = [];
+            foreach ($this->getAllowedSelections((int) $component['id_component']) as $selection) {
+                $products[] = array_merge(
+                    $selection,
+                    $this->buildProductSearchRow(
+                        (int) $selection['id_product'],
+                        (int) $selection['id_product_attribute'],
+                        (string) \Product::getProductName((int) $selection['id_product'], null, $idLang),
+                        '',
+                        '',
+                        $idLang
+                    )
+                );
+            }
+            $component['products'] = $products;
         }
         unset($component);
 
@@ -236,6 +250,66 @@ final class PackRepository
         unset($component);
 
         return $components;
+    }
+
+    /**
+     * Search active products and combinations for the admin component builder.
+     *
+     * @param string $query Search term matched against name, product reference and combination reference.
+     * @param int $idShop Shop identifier used to scope products.
+     * @param int $idLang Language identifier used for labels and attribute names.
+     *
+     * @return list<array{
+     *     id_product: int,
+     *     id_product_attribute: int,
+     *     name: string,
+     *     reference: string,
+     *     attributes_text: string,
+     *     image: string
+     * }>
+     */
+    public function searchProductsForBuilder(string $query, int $idShop, int $idLang): array
+    {
+        $sql = 'SELECT p.id_product, pl.name, p.reference, ps.active
+            FROM `' . _DB_PREFIX_ . 'product` p
+            INNER JOIN `' . _DB_PREFIX_ . 'product_shop` ps
+                ON ps.id_product = p.id_product AND ps.id_shop = ' . (int) $idShop . '
+            INNER JOIN `' . _DB_PREFIX_ . 'product_lang` pl
+                ON pl.id_product = p.id_product AND pl.id_shop = ' . (int) $idShop . ' AND pl.id_lang = ' . (int) $idLang . '
+            LEFT JOIN `' . _DB_PREFIX_ . 'product_attribute` pa_ref
+                ON pa_ref.id_product = p.id_product
+            WHERE ps.active = 1
+                AND (
+                    pl.name LIKE "%' . pSQL($query) . '%"
+                    OR p.reference LIKE "%' . pSQL($query) . '%"
+                    OR pa_ref.reference LIKE "%' . pSQL($query) . '%"
+                )
+            GROUP BY p.id_product, pl.name, p.reference, ps.active
+            ORDER BY pl.name ASC, p.id_product ASC
+            LIMIT 20';
+
+        $products = [];
+        foreach (\Db::getInstance()->executeS($sql) ?: [] as $row) {
+            $idProduct = (int) $row['id_product'];
+            $combinations = $this->getBuilderCombinations($idProduct, $idLang);
+            if (!$combinations) {
+                $products[] = $this->buildProductSearchRow($idProduct, 0, (string) $row['name'], (string) $row['reference'], '', $idLang);
+                continue;
+            }
+
+            foreach ($combinations as $combination) {
+                $products[] = $this->buildProductSearchRow(
+                    $idProduct,
+                    (int) $combination['id_product_attribute'],
+                    (string) $row['name'],
+                    (string) ($combination['reference'] ?: $row['reference']),
+                    (string) $combination['attributes_text'],
+                    $idLang
+                );
+            }
+        }
+
+        return $products;
     }
 
     /**
@@ -311,6 +385,82 @@ final class PackRepository
         if (class_exists('StockAvailable') && method_exists('StockAvailable', 'setProductOutOfStock')) {
             \StockAvailable::setProductOutOfStock($idProduct, 1, $idShop);
         }
+    }
+
+    /**
+     * Return active combination labels for the builder search result.
+     *
+     * @param int $idProduct Product identifier.
+     * @param int $idLang Language identifier.
+     *
+     * @return list<array{id_product_attribute: int, reference: string, attributes_text: string}>
+     */
+    private function getBuilderCombinations(int $idProduct, int $idLang): array
+    {
+        $rows = \Db::getInstance()->executeS(
+            'SELECT pa.id_product_attribute, pa.reference,
+                GROUP_CONCAT(CONCAT(agl.name, ": ", al.name) ORDER BY ag.position, a.position SEPARATOR ", ") AS attributes_text
+            FROM `' . _DB_PREFIX_ . 'product_attribute` pa
+            INNER JOIN `' . _DB_PREFIX_ . 'product_attribute_combination` pac
+                ON pac.id_product_attribute = pa.id_product_attribute
+            INNER JOIN `' . _DB_PREFIX_ . 'attribute` a
+                ON a.id_attribute = pac.id_attribute
+            INNER JOIN `' . _DB_PREFIX_ . 'attribute_lang` al
+                ON al.id_attribute = a.id_attribute AND al.id_lang = ' . (int) $idLang . '
+            INNER JOIN `' . _DB_PREFIX_ . 'attribute_group` ag
+                ON ag.id_attribute_group = a.id_attribute_group
+            INNER JOIN `' . _DB_PREFIX_ . 'attribute_group_lang` agl
+                ON agl.id_attribute_group = ag.id_attribute_group AND agl.id_lang = ' . (int) $idLang . '
+            WHERE pa.id_product = ' . (int) $idProduct . '
+            GROUP BY pa.id_product_attribute, pa.reference
+            ORDER BY pa.id_product_attribute ASC'
+        );
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /**
+     * Build one product choice row for the builder.
+     *
+     * @param int $idProduct Product identifier.
+     * @param int $idProductAttribute Combination identifier.
+     * @param string $name Product name.
+     * @param string $reference Product or combination reference.
+     * @param string $attributesText Human-readable combination attributes.
+     * @param int $idLang Language identifier.
+     *
+     * @return array{
+     *     id_product: int,
+     *     id_product_attribute: int,
+     *     name: string,
+     *     reference: string,
+     *     attributes_text: string,
+     *     image: string
+     * }
+     */
+    private function buildProductSearchRow(int $idProduct, int $idProductAttribute, string $name, string $reference, string $attributesText, int $idLang): array
+    {
+        $product = new \Product($idProduct, false, $idLang);
+        if ($reference === '') {
+            $reference = $idProductAttribute > 0 ? (string) \Combination::getReference($idProductAttribute) : (string) $product->reference;
+        }
+        if ($attributesText === '' && $idProductAttribute > 0) {
+            $attributesText = strip_tags((string) \Product::getProductName($idProduct, $idProductAttribute, $idLang));
+        }
+        $cover = \Product::getCover($idProduct);
+        $image = '';
+        if (is_array($cover) && isset($cover['id_image']) && \Context::getContext()->link) {
+            $image = (string) \Context::getContext()->link->getImageLink((string) $product->link_rewrite, (string) $cover['id_image'], 'small_default');
+        }
+
+        return [
+            'id_product' => $idProduct,
+            'id_product_attribute' => $idProductAttribute,
+            'name' => $name,
+            'reference' => $reference,
+            'attributes_text' => $attributesText,
+            'image' => $image,
+        ];
     }
 
     /**

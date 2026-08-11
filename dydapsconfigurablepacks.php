@@ -52,7 +52,7 @@ final class DydapsConfigurablePacks extends Module
     {
         $this->name = 'dydapsconfigurablepacks';
         $this->tab = 'catalog';
-        $this->version = '1.0.1';
+        $this->version = '1.1.0';
         $this->author = 'DYDAPS';
         $this->need_instance = 0;
         $this->bootstrap = true;

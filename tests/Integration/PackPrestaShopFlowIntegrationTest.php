@@ -77,6 +77,7 @@ final class PackPrestaShopFlowIntegrationTest
         $this->createCustomerContext();
 
         $componentsPack = $this->createPackFixture('components');
+        $this->assertBuilderProductSearchFindsFixtureProducts($componentsPack);
         $this->assertDistinctConfigurationsCreateDistinctCartLines($componentsPack);
         $this->assertRepeatedConfigurationSynchronizesQuantity($componentsPack);
         $this->assertDeletionAndCartClearCleanupRows($componentsPack);
@@ -263,6 +264,25 @@ final class PackPrestaShopFlowIntegrationTest
 
         $this->assertSame(2, $this->countNativeCustomizedLines((int) $cart->id), 'M + XL must create two native cart lines.');
         $this->assertSame(2, $this->countModuleRows((int) $cart->id), 'M + XL must create two module cart rows.');
+    }
+
+    /**
+     * @param array<string, int> $fixture
+     *
+     * @return void
+     */
+    private function assertBuilderProductSearchFindsFixtureProducts(array $fixture): void
+    {
+        $results = $this->packRepository->searchProductsForBuilder('Component M', $this->idShop, $this->idLang);
+        $found = false;
+        foreach ($results as $result) {
+            if ((int) $result['id_product'] === $fixture['id_product_m']) {
+                $found = true;
+                break;
+            }
+        }
+
+        $this->assertTrue($found, 'The back-office builder product search must find fixture products.');
     }
 
     /**

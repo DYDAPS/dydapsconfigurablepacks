@@ -16,7 +16,7 @@
 <module>
     <name>dydapsconfigurablepacks</name>
     <displayName><![CDATA[DYDAPS - Configurable Packs]]></displayName>
-    <version><![CDATA[1.0.1]]></version>
+    <version><![CDATA[1.1.0]]></version>
     <description><![CDATA[Create and sell configurable product packs.]]></description>
     <author><![CDATA[DYDAPS]]></author>
     <tab><![CDATA[catalog]]></tab>
