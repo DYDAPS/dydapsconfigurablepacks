@@ -243,7 +243,9 @@
           if (query.length < 2) {
             return;
           }
-          fetch(root.getAttribute('data-products-url') + '?q=' + encodeURIComponent(query), {credentials: 'same-origin'})
+          var productsUrl = root.getAttribute('data-products-url') || '';
+          var separator = productsUrl.indexOf('?') === -1 ? '?' : '&';
+          fetch(productsUrl + separator + 'q=' + encodeURIComponent(query), {credentials: 'same-origin'})
             .then(function (response) {
               return response.json();
             })

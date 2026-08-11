@@ -2,7 +2,7 @@ dydaps_configurable_packs_index:
   path: /dydaps/configurable-packs
   methods: [GET]
   defaults:
-    _controller: dydaps.configurable_packs.controller.admin.pack:index
+    _controller: dydaps.configurable_packs.controller.admin.pack::index
     _admin_route: true
     _legacy_controller: AdminDydapsConfigurablePacks
     _legacy_link: AdminDydapsConfigurablePacks
@@ -11,7 +11,7 @@ dydaps_configurable_packs_search:
   path: /dydaps/configurable-packs
   methods: [POST]
   defaults:
-    _controller: dydaps.configurable_packs.controller.admin.pack:search
+    _controller: dydaps.configurable_packs.controller.admin.pack::search
     _admin_route: true
     _legacy_controller: AdminDydapsConfigurablePacks
     _legacy_link: AdminDydapsConfigurablePacks
@@ -20,7 +20,7 @@ dydaps_configurable_packs_create:
   path: /dydaps/configurable-packs/create
   methods: [GET, POST]
   defaults:
-    _controller: dydaps.configurable_packs.controller.admin.pack:create
+    _controller: dydaps.configurable_packs.controller.admin.pack::create
     _admin_route: true
     _legacy_controller: AdminDydapsConfigurablePacks
     _legacy_link: AdminDydapsConfigurablePacks
@@ -31,7 +31,7 @@ dydaps_configurable_packs_edit:
   requirements:
     id: \d+
   defaults:
-    _controller: dydaps.configurable_packs.controller.admin.pack:edit
+    _controller: dydaps.configurable_packs.controller.admin.pack::edit
     _admin_route: true
     _legacy_controller: AdminDydapsConfigurablePacks
     _legacy_link: AdminDydapsConfigurablePacks
@@ -42,7 +42,7 @@ dydaps_configurable_packs_toggle:
   requirements:
     id: \d+
   defaults:
-    _controller: dydaps.configurable_packs.controller.admin.pack:toggle
+    _controller: dydaps.configurable_packs.controller.admin.pack::toggle
     _admin_route: true
     _legacy_controller: AdminDydapsConfigurablePacks
     _legacy_link: AdminDydapsConfigurablePacks
@@ -53,7 +53,7 @@ dydaps_configurable_packs_delete:
   requirements:
     id: \d+
   defaults:
-    _controller: dydaps.configurable_packs.controller.admin.pack:delete
+    _controller: dydaps.configurable_packs.controller.admin.pack::delete
     _admin_route: true
     _legacy_controller: AdminDydapsConfigurablePacks
     _legacy_link: AdminDydapsConfigurablePacks
@@ -62,7 +62,7 @@ dydaps_configurable_packs_product_search:
   path: /dydaps/configurable-packs/product-search
   methods: [GET]
   defaults:
-    _controller: dydaps.configurable_packs.controller.admin.pack:productSearch
+    _controller: dydaps.configurable_packs.controller.admin.pack::productSearch
     _admin_route: true
     _legacy_controller: AdminDydapsConfigurablePacks
     _legacy_link: AdminDydapsConfigurablePacks

@@ -49,7 +49,8 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
         $qb = $this->getBaseQueryBuilder()
             ->select('pk.id_pack', '"-" AS image', 'pl.name', 'p.reference', 's.name AS shop_name', 'pk.pack_type', 'COUNT(c.id_component) AS component_count', 'pk.pricing_method', 'pk.fixed_price_tax_excl AS price', 'pk.stock_behavior AS availability', 'pk.active', 'pk.updated_at')
             ->groupBy('pk.id_pack');
-        $this->applyFilters($qb, $searchCriteria->getFilters());
+        $filters = $searchCriteria->getFilters();
+        $this->applyFilters($qb, is_array($filters) ? $filters : []);
         $this->searchCriteriaApplicator->applySorting($searchCriteria, $qb)->applyPagination($searchCriteria, $qb);
 
         return $qb;
@@ -65,7 +66,8 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
     public function getCountQueryBuilder(SearchCriteriaInterface $searchCriteria): QueryBuilder
     {
         $qb = $this->getBaseQueryBuilder()->select('COUNT(DISTINCT pk.id_pack)');
-        $this->applyFilters($qb, $searchCriteria->getFilters());
+        $filters = $searchCriteria->getFilters();
+        $this->applyFilters($qb, is_array($filters) ? $filters : []);
 
         return $qb;
     }

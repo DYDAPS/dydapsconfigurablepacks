@@ -135,7 +135,7 @@ final class PackConfigurationValidator
             }
 
             $product = new \Product((int) $selection['id_product'], false, $idLang, $idShop);
-            if (!\Validate::isLoadedObject($product) || !(bool) $product->active) {
+            if (!\Validate::isLoadedObject($product) || !$this->repository->isProductAvailableInShop((int) $selection['id_product'], $idShop)) {
                 $errors[] = 'A selected product is not available in this shop.';
             }
             $idAttribute = (int) ($selection['id_product_attribute'] ?? 0);
@@ -143,6 +143,9 @@ final class PackConfigurationValidator
                 $combination = new \Combination($idAttribute);
                 if (!\Validate::isLoadedObject($combination) || (int) $combination->id_product !== (int) $selection['id_product']) {
                     $errors[] = 'A selected combination does not belong to the selected product.';
+                }
+                if (!$this->repository->isCombinationAvailableInShop($idAttribute, $idShop)) {
+                    $errors[] = 'A selected combination is not available in this shop.';
                 }
             }
 

@@ -216,6 +216,7 @@ final class PackController extends AbstractDydapsAdminController
             'components_json' => $this->getDefaultComponentsJson(),
         ];
         if ($pack) {
+            $data['active'] = (bool) $data['active'];
             $data['components_json'] = json_encode($this->repository->getComponentsForAdmin((int) $pack['id_pack'], (int) \Context::getContext()->language->id), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
@@ -237,6 +238,12 @@ final class PackController extends AbstractDydapsAdminController
                 foreach ($errors as $error) {
                     $this->addFlash('error', $error);
                 }
+
+                return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
+            }
+            $existingPack = $this->repository->getPackByProduct((int) $payload['id_product'], (int) $payload['id_shop']);
+            if ($existingPack && (int) $existingPack['id_pack'] !== (int) $payload['id_pack']) {
+                $this->addFlash('error', $this->t('This product is already configured as a pack for the current shop.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
                 return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
             }

@@ -116,6 +116,9 @@ final class AjaxController
             $cart->id_shop = (int) $context->shop->id;
             $cart->add();
             $context->cookie->id_cart = (int) $cart->id;
+            if (method_exists($context->cookie, 'write')) {
+                $context->cookie->write();
+            }
             $context->cart = $cart;
         }
 

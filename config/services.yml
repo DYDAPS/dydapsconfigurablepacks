@@ -126,6 +126,7 @@ services:
     arguments:
       $connection: '@database_connection'
       $dbPrefix: '%database_prefix%'
+      $searchCriteriaApplicator: '@PrestaShop\PrestaShop\Core\Grid\Query\DoctrineSearchCriteriaApplicatorInterface'
       $legacyContext: '@prestashop.adapter.legacy.context'
 
   dydaps.configurable_packs.grid.data_provider.packs:
@@ -149,6 +150,8 @@ services:
   dydaps.configurable_packs.controller.admin.pack:
     class: 'Dydaps\ConfigurablePacks\Controller\Admin\PackController'
     public: true
+    autowire: true
+    autoconfigure: true
     arguments:
       - '@dydaps.configurable_packs.grid.factory.packs'
       - '@prestashop.core.grid.presenter.grid_presenter'

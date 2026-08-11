@@ -156,7 +156,7 @@ final class PackPriceCalculator
                 'component_name' => (string) ($definition['name'] ?? ''),
                 'product_name' => (string) $product->name,
                 'product_reference' => (string) $product->reference,
-                'combination_reference' => $idAttribute > 0 ? (string) \Combination::getReference($idAttribute) : '',
+                'combination_reference' => $idAttribute > 0 ? $this->repository->getCombinationReference($idAttribute) : '',
                 'attributes_text' => $idAttribute > 0 ? strip_tags(\Product::getProductName($idProduct, $idAttribute, $idLang)) : '',
             ];
         }

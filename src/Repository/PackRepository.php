@@ -220,7 +220,10 @@ final class PackRepository
                 $idProduct = (int) $selection['id_product'];
                 $idAttribute = (int) $selection['id_product_attribute'];
                 $product = new \Product($idProduct, false, $idLang, $idShop);
-                if (!\Validate::isLoadedObject($product) || !(bool) $product->active) {
+                if (!\Validate::isLoadedObject($product) || !$this->isProductAvailableInShop($idProduct, $idShop)) {
+                    continue;
+                }
+                if ($idAttribute > 0 && !$this->isCombinationAvailableInShop($idAttribute, $idShop)) {
                     continue;
                 }
                 $image = \Product::getCover($idProduct);
@@ -232,7 +235,7 @@ final class PackRepository
                     'id_product' => $idProduct,
                     'id_product_attribute' => $idAttribute,
                     'name' => (string) $product->name,
-                    'reference' => $idAttribute > 0 ? (string) \Combination::getReference($idAttribute) : (string) $product->reference,
+                    'reference' => $idAttribute > 0 ? $this->getCombinationReference($idAttribute) : (string) $product->reference,
                     'attributes' => $idAttribute > 0 ? \Product::getAttributesParams($idProduct, $idAttribute) : [],
                     'attributes_text' => $idAttribute > 0 ? strip_tags(\Product::getProductName($idProduct, $idAttribute, $idLang)) : '',
                     'image' => $image ? $link->getImageLink($product->link_rewrite, (string) $image['id_image'], 'home_default') : '',
@@ -291,7 +294,7 @@ final class PackRepository
         $products = [];
         foreach (\Db::getInstance()->executeS($sql) ?: [] as $row) {
             $idProduct = (int) $row['id_product'];
-            $combinations = $this->getBuilderCombinations($idProduct, $idLang);
+            $combinations = $this->getBuilderCombinations($idProduct, $idShop, $idLang);
             if (!$combinations) {
                 $products[] = $this->buildProductSearchRow($idProduct, 0, (string) $row['name'], (string) $row['reference'], '', $idLang);
                 continue;
@@ -395,12 +398,14 @@ final class PackRepository
      *
      * @return list<array{id_product_attribute: int, reference: string, attributes_text: string}>
      */
-    private function getBuilderCombinations(int $idProduct, int $idLang): array
+    private function getBuilderCombinations(int $idProduct, int $idShop, int $idLang): array
     {
         $rows = \Db::getInstance()->executeS(
             'SELECT pa.id_product_attribute, pa.reference,
                 GROUP_CONCAT(CONCAT(agl.name, ": ", al.name) ORDER BY ag.position, a.position SEPARATOR ", ") AS attributes_text
             FROM `' . _DB_PREFIX_ . 'product_attribute` pa
+            INNER JOIN `' . _DB_PREFIX_ . 'product_attribute_shop` pas
+                ON pas.id_product_attribute = pa.id_product_attribute AND pas.id_shop = ' . (int) $idShop . '
             INNER JOIN `' . _DB_PREFIX_ . 'product_attribute_combination` pac
                 ON pac.id_product_attribute = pa.id_product_attribute
             INNER JOIN `' . _DB_PREFIX_ . 'attribute` a
@@ -417,6 +422,63 @@ final class PackRepository
         );
 
         return is_array($rows) ? $rows : [];
+    }
+
+    /**
+     * Return whether a product is active in the requested shop.
+     *
+     * @param int $idProduct Product identifier.
+     * @param int $idShop Shop identifier.
+     *
+     * @return bool True when the product has an active product_shop row.
+     */
+    public function isProductAvailableInShop(int $idProduct, int $idShop): bool
+    {
+        return (int) \Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'product_shop`
+            WHERE id_product = ' . (int) $idProduct . '
+            AND id_shop = ' . (int) $idShop . '
+            AND active = 1'
+        ) > 0;
+    }
+
+    /**
+     * Return whether a product combination is associated with the requested shop.
+     *
+     * @param int $idProductAttribute Combination identifier.
+     * @param int $idShop Shop identifier.
+     *
+     * @return bool True when the combination is scoped to the shop.
+     */
+    public function isCombinationAvailableInShop(int $idProductAttribute, int $idShop): bool
+    {
+        return (int) \Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'product_attribute_shop`
+            WHERE id_product_attribute = ' . (int) $idProductAttribute . '
+            AND id_shop = ' . (int) $idShop
+        ) > 0;
+    }
+
+    /**
+     * Return the stored reference for a product combination.
+     *
+     * PrestaShop 9 no longer exposes the legacy Combination::getReference()
+     * helper used by earlier versions, while the database column remains stable.
+     *
+     * @param int $idProductAttribute Combination identifier.
+     *
+     * @return string Combination reference, or an empty string when unavailable.
+     */
+    public function getCombinationReference(int $idProductAttribute): string
+    {
+        if ($idProductAttribute <= 0) {
+            return '';
+        }
+
+        return (string) \Db::getInstance()->getValue(
+            'SELECT reference FROM `' . _DB_PREFIX_ . 'product_attribute`
+            WHERE id_product_attribute = ' . (int) $idProductAttribute
+        );
     }
 
     /**
@@ -442,7 +504,9 @@ final class PackRepository
     {
         $product = new \Product($idProduct, false, $idLang);
         if ($reference === '') {
-            $reference = $idProductAttribute > 0 ? (string) \Combination::getReference($idProductAttribute) : (string) $product->reference;
+            $reference = $idProductAttribute > 0
+                ? $this->getCombinationReference($idProductAttribute)
+                : (string) $product->reference;
         }
         if ($attributesText === '' && $idProductAttribute > 0) {
             $attributesText = strip_tags((string) \Product::getProductName($idProduct, $idProductAttribute, $idLang));

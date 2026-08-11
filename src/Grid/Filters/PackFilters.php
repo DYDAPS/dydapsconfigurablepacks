@@ -22,6 +22,14 @@ final class PackFilters extends Filters
     protected $filterId = 'dydaps_configurable_packs';
 
     /**
+     * @param array<string, mixed> $parameters Grid parameters provided by the request.
+     */
+    public function __construct(array $parameters = [])
+    {
+        parent::__construct(array_merge(self::getDefaults(), $parameters));
+    }
+
+    /**
      * Return default search criteria for the pack grid.
      *
      * @return array{
