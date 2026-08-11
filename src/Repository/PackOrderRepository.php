@@ -160,6 +160,23 @@ final class PackOrderRepository
     }
 
     /**
+     * Return one configured pack order snapshot by native order detail.
+     *
+     * @param int $idOrderDetail Native order detail identifier.
+     *
+     * @return array<string, mixed>|null Snapshot row.
+     */
+    public function getOrderSnapshotByOrderDetail(int $idOrderDetail): ?array
+    {
+        $row = \Db::getInstance()->getRow(
+            'SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_order`
+            WHERE id_order_detail = ' . (int) $idOrderDetail
+        );
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
      * Return component snapshot rows for a configured pack order.
      *
      * @param int $idPackOrder Configured pack order snapshot identifier.
@@ -185,6 +202,53 @@ final class PackOrderRepository
             WHERE id_pack_order = ' . (int) $idPackOrder . '
             ORDER BY id_pack_refund ASC'
         ) ?: [];
+    }
+
+    /**
+     * Record a pack refund when its operation key has not been seen yet.
+     *
+     * @param array{
+     *     id_order: int,
+     *     id_pack_order: int,
+     *     id_pack_order_component?: int,
+     *     id_order_slip?: int,
+     *     operation_key: string,
+     *     refund_type: string,
+     *     quantity: int,
+     *     amount_tax_excl: float,
+     *     amount_tax_incl: float,
+     *     restocked?: bool|int
+     * } $refund Refund row.
+     *
+     * @return bool True when a new row is inserted, false when the operation already exists.
+     */
+    public function recordRefund(array $refund): bool
+    {
+        $operationKey = (string) ($refund['operation_key'] ?? '');
+        if ($operationKey === '') {
+            throw new \RuntimeException('Pack refund operation key is required.');
+        }
+
+        if ((int) \Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'dydaps_pack_refund`
+            WHERE operation_key = "' . pSQL($operationKey) . '"'
+        ) > 0) {
+            return false;
+        }
+
+        return \Db::getInstance()->insert('dydaps_pack_refund', [
+            'id_order' => (int) $refund['id_order'],
+            'id_pack_order' => (int) $refund['id_pack_order'],
+            'id_pack_order_component' => (int) ($refund['id_pack_order_component'] ?? 0),
+            'id_order_slip' => (int) ($refund['id_order_slip'] ?? 0),
+            'operation_key' => pSQL($operationKey),
+            'refund_type' => pSQL((string) $refund['refund_type']),
+            'quantity' => max(1, (int) $refund['quantity']),
+            'amount_tax_excl' => (float) $refund['amount_tax_excl'],
+            'amount_tax_incl' => (float) $refund['amount_tax_incl'],
+            'restocked' => (int) !empty($refund['restocked']),
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
     }
 
     /**

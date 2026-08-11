@@ -161,6 +161,9 @@ CREATE TABLE IF NOT EXISTS `PREFIX_dydaps_pack_refund` (
   `id_pack_refund` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `id_order` INT UNSIGNED NOT NULL,
   `id_pack_order` INT UNSIGNED NOT NULL,
+  `id_pack_order_component` INT UNSIGNED NOT NULL DEFAULT 0,
+  `id_order_slip` INT UNSIGNED NOT NULL DEFAULT 0,
+  `operation_key` VARCHAR(190) NOT NULL,
   `refund_type` VARCHAR(32) NOT NULL,
   `quantity` INT UNSIGNED NOT NULL DEFAULT 1,
   `amount_tax_excl` DECIMAL(20,6) NOT NULL,
@@ -168,5 +171,6 @@ CREATE TABLE IF NOT EXISTS `PREFIX_dydaps_pack_refund` (
   `restocked` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` DATETIME NOT NULL,
   PRIMARY KEY (`id_pack_refund`),
+  UNIQUE KEY `operation_key` (`operation_key`),
   KEY `order_pack` (`id_order`, `id_pack_order`)
 ) ENGINE=ENGINE_TYPE DEFAULT CHARSET=utf8mb4;

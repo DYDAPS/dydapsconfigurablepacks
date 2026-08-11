@@ -76,17 +76,76 @@ final class PackRefundService
             $this->stockMovementService->restoreOrderComponents($idOrder, $idPackOrder, $idShop, $quantity);
         }
 
-        \Db::getInstance()->insert('dydaps_pack_refund', [
+        $this->orderRepository->recordRefund([
             'id_order' => $idOrder,
             'id_pack_order' => $idPackOrder,
+            'operation_key' => 'module-pack:' . $idOrder . ':' . $idPackOrder . ':' . $quantity . ':' . $alreadyRefunded . ':' . ($restoreStock ? 'restock' : 'no-restock') . ':' . sha1(json_encode($amounts)),
             'refund_type' => 'pack',
             'quantity' => $quantity,
             'amount_tax_excl' => $amounts['tax_excl'],
             'amount_tax_incl' => $amounts['tax_incl'],
-            'restocked' => (int) $restoreStock,
-            'created_at' => date('Y-m-d H:i:s'),
+            'restocked' => $restoreStock,
         ]);
 
         return $amounts;
+    }
+
+    /**
+     * Record a refund emitted by PrestaShop's native order detail workflow.
+     *
+     * @param int $idOrderDetail Native order detail identifier.
+     * @param int $quantity Refunded pack quantity.
+     * @param float $amount Amount provided by PrestaShop's native refund hook.
+     * @param bool $restoreStock Whether PrestaShop reinjected stock for this refund.
+     * @param string $action Native cancellation action type.
+     *
+     * @return bool True when the native refund was recorded for a pack snapshot.
+     */
+    public function recordNativeOrderDetailRefund(int $idOrderDetail, int $quantity, float $amount, bool $restoreStock, string $action): bool
+    {
+        $snapshot = $this->orderRepository->getOrderSnapshotByOrderDetail($idOrderDetail);
+        if (!$snapshot) {
+            return false;
+        }
+
+        $orderedQuantity = max(1, (int) $snapshot['quantity']);
+        $alreadyRefunded = $this->orderRepository->getRefundedQuantity((int) $snapshot['id_pack_order']);
+        $remainingQuantity = $orderedQuantity - $alreadyRefunded;
+        if ($quantity <= 0 || $quantity > $remainingQuantity) {
+            throw new \RuntimeException('The native refund quantity exceeds the remaining pack refundable quantity.');
+        }
+
+        $ratio = $quantity / $orderedQuantity;
+        $historicalTaxIncl = round((float) $snapshot['total_price_tax_incl'] * $ratio, 6);
+        $historicalTaxExcl = round((float) $snapshot['total_price_tax_excl'] * $ratio, 6);
+        $operationKey = sprintf(
+            'native:%d:%d:%s:%d:%0.6F:%d',
+            (int) $snapshot['id_order'],
+            $idOrderDetail,
+            $action,
+            $quantity,
+            $amount,
+            $alreadyRefunded
+        );
+
+        if ($restoreStock) {
+            $this->stockMovementService->restoreOrderComponents(
+                (int) $snapshot['id_order'],
+                (int) $snapshot['id_pack_order'],
+                (int) $snapshot['id_shop'],
+                $quantity
+            );
+        }
+
+        return $this->orderRepository->recordRefund([
+            'id_order' => (int) $snapshot['id_order'],
+            'id_pack_order' => (int) $snapshot['id_pack_order'],
+            'operation_key' => $operationKey,
+            'refund_type' => 'native_' . $action,
+            'quantity' => $quantity,
+            'amount_tax_excl' => $historicalTaxExcl,
+            'amount_tax_incl' => $historicalTaxIncl,
+            'restocked' => $restoreStock,
+        ]);
     }
 }

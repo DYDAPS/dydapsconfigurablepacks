@@ -23,6 +23,7 @@ use Dydaps\ConfigurablePacks\Repository\PackRepository;
 use Dydaps\ConfigurablePacks\Repository\PackStockRepository;
 use Dydaps\ConfigurablePacks\Service\PackDiscountAllocator;
 use Dydaps\ConfigurablePacks\Service\PackPriceCalculator;
+use Dydaps\ConfigurablePacks\Service\PackRefundService;
 use Dydaps\ConfigurablePacks\Service\PackCartSynchronizer;
 use Dydaps\ConfigurablePacks\Service\PackOrderService;
 use Dydaps\ConfigurablePacks\Service\PackStockMovementService;
@@ -82,6 +83,7 @@ final class DydapsConfigurablePacks extends Module
         return parent::install()
             && $this->installConfiguration()
             && $this->runSqlFile(__DIR__ . '/sql/install.sql')
+            && $this->ensureInstalledSchema()
             && $this->installTab()
             && $this->registerRequiredHooks();
     }
@@ -394,6 +396,144 @@ final class DydapsConfigurablePacks extends Module
     }
 
     /**
+     * Synchronize native PrestaShop order-detail refunds to pack snapshots.
+     *
+     * @param array<string, mixed> $params Native cancellation/refund hook parameters.
+     *
+     * @return void
+     */
+    public function hookActionProductCancel(array $params): void
+    {
+        try {
+            $idOrderDetail = (int) ($params['id_order_detail'] ?? 0);
+            $quantity = (int) ($params['cancel_quantity'] ?? 0);
+            if ($idOrderDetail <= 0 || $quantity <= 0) {
+                return;
+            }
+
+            $action = (string) ($params['action'] ?? 'refund');
+            $amount = (float) ($params['cancel_amount'] ?? 0);
+            $restoreStock = $action !== 'partial_refund';
+            $this->getRefundService()->recordNativeOrderDetailRefund($idOrderDetail, $quantity, $amount, $restoreStock, $action);
+        } catch (Throwable $e) {
+            $this->logError('Native refund synchronization failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Attach the latest native credit slip id to module refund rows when available.
+     *
+     * @param array<string, mixed> $params Native order slip hook parameters.
+     *
+     * @return void
+     */
+    public function hookActionOrderSlipAdd(array $params): void
+    {
+        try {
+            $orderSlip = $params['orderSlipCreated'] ?? null;
+            $order = $params['order'] ?? null;
+            if (!$orderSlip instanceof OrderSlip || !$order instanceof Order) {
+                return;
+            }
+
+            Db::getInstance()->execute(
+                'UPDATE `' . _DB_PREFIX_ . 'dydaps_pack_refund` r
+                INNER JOIN `' . _DB_PREFIX_ . 'dydaps_pack_order` po
+                    ON po.id_pack_order = r.id_pack_order
+                SET r.id_order_slip = ' . (int) $orderSlip->id . '
+                WHERE r.id_order = ' . (int) $order->id . '
+                AND r.id_order_slip = 0'
+            );
+        } catch (Throwable $e) {
+            $this->logError('Credit slip synchronization failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Display historical pack details on invoices.
+     *
+     * @param array<string, mixed> $params PDF hook parameters.
+     *
+     * @return string Rendered PDF-safe HTML.
+     */
+    public function hookDisplayPDFInvoice(array $params): string
+    {
+        return $this->renderPdfSnapshotFromObject($params['object'] ?? null);
+    }
+
+    /**
+     * Display historical pack details on delivery slips.
+     *
+     * @param array<string, mixed> $params PDF hook parameters.
+     *
+     * @return string Rendered PDF-safe HTML.
+     */
+    public function hookDisplayPDFDeliverySlip(array $params): string
+    {
+        return $this->renderPdfSnapshotFromObject($params['object'] ?? null);
+    }
+
+    /**
+     * Display historical pack details on credit slips.
+     *
+     * @param array<string, mixed> $params PDF hook parameters.
+     *
+     * @return string Rendered PDF-safe HTML.
+     */
+    public function hookDisplayPDFOrderSlip(array $params): string
+    {
+        return $this->renderPdfSnapshotFromObject($params['object'] ?? null);
+    }
+
+    /**
+     * Add historical pack details to important transactional emails.
+     *
+     * @param array<string, mixed> $params Email hook parameters passed by reference.
+     *
+     * @return void
+     */
+    public function hookActionEmailSendBefore(array &$params): void
+    {
+        try {
+            $template = (string) ($params['template'] ?? '');
+            if (!in_array($template, ['order_conf', 'refund', 'credit_slip'], true)) {
+                return;
+            }
+
+            $templateVars = &$params['templateVars'];
+            if (!is_array($templateVars)) {
+                return;
+            }
+
+            $idOrder = $this->resolveEmailOrderId($templateVars);
+            if ($idOrder <= 0) {
+                return;
+            }
+
+            $text = $this->buildPlainPackDetails($idOrder);
+            if ($text === '') {
+                return;
+            }
+
+            $html = nl2br(Tools::safeOutput($text));
+            foreach (['{products}', '{product_list_html}'] as $key) {
+                if (isset($templateVars[$key]) && is_string($templateVars[$key])) {
+                    $templateVars[$key] .= '<br /><br />' . $html;
+                }
+            }
+            foreach (['{products_txt}', '{product_list_txt}'] as $key) {
+                if (isset($templateVars[$key]) && is_string($templateVars[$key])) {
+                    $templateVars[$key] .= "\n\n" . $text;
+                }
+            }
+            $templateVars['{dydaps_pack_details_html}'] = $html;
+            $templateVars['{dydaps_pack_details_txt}'] = $text;
+        } catch (Throwable $e) {
+            $this->logError('Email pack detail injection failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Tell PrestaShop that this module uses Symfony translation domains.
      *
      * @return bool Always true for this module.
@@ -432,6 +572,94 @@ final class DydapsConfigurablePacks extends Module
     }
 
     /**
+     * Render stored pack snapshots for a PDF object.
+     *
+     * @param mixed $object Native PDF object.
+     *
+     * @return string Rendered PDF HTML, or an empty string.
+     */
+    private function renderPdfSnapshotFromObject($object): string
+    {
+        $idOrder = 0;
+        if ($object instanceof OrderInvoice || $object instanceof OrderSlip) {
+            $idOrder = (int) $object->id_order;
+        } elseif ($object instanceof Order) {
+            $idOrder = (int) $object->id;
+        }
+
+        if ($idOrder <= 0) {
+            return '';
+        }
+
+        $repository = new PackOrderRepository();
+        $snapshots = $repository->getOrderSnapshots($idOrder);
+        if (!$snapshots) {
+            return '';
+        }
+
+        foreach ($snapshots as &$snapshot) {
+            $snapshot['components'] = $repository->getComponents((int) $snapshot['id_pack_order']);
+        }
+        unset($snapshot);
+
+        $this->context->smarty->assign(['dydaps_pack_order_snapshots' => $snapshots]);
+
+        return (string) $this->fetch('module:' . $this->name . '/views/templates/hook/pdf_pack_details.tpl');
+    }
+
+    /**
+     * Build a plain-text historical pack summary for emails.
+     *
+     * @param int $idOrder Order identifier.
+     *
+     * @return string Plain-text pack details.
+     */
+    private function buildPlainPackDetails(int $idOrder): string
+    {
+        $repository = new PackOrderRepository();
+        $lines = [];
+        foreach ($repository->getOrderSnapshots($idOrder) as $snapshot) {
+            $lines[] = (string) $snapshot['pack_name'] . ' x' . (int) $snapshot['quantity'];
+            foreach ($repository->getComponents((int) $snapshot['id_pack_order']) as $component) {
+                $label = '- ' . (string) $component['product_name'];
+                if ((string) ($component['attributes_text'] ?? '') !== '') {
+                    $label .= ' - ' . (string) $component['attributes_text'];
+                }
+                if ((string) ($component['product_reference'] ?? '') !== '') {
+                    $label .= ' (' . (string) $component['product_reference'] . ')';
+                }
+                $label .= ' x' . (int) $component['quantity_total'];
+                $lines[] = $label;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Resolve an order id from email template variables.
+     *
+     * @param array<string, mixed> $templateVars Email template variables.
+     *
+     * @return int Order identifier, or zero when not available.
+     */
+    private function resolveEmailOrderId(array $templateVars): int
+    {
+        foreach (['{id_order}', 'id_order'] as $key) {
+            if (isset($templateVars[$key]) && (int) $templateVars[$key] > 0) {
+                return (int) $templateVars[$key];
+            }
+        }
+
+        $reference = (string) ($templateVars['{order_name}'] ?? $templateVars['order_name'] ?? '');
+        if ($reference !== '') {
+            return (int) Order::getIdByReference($reference);
+        }
+
+        return 0;
+    }
+
+    /**
      * Create default module configuration values.
      *
      * @return bool True when all configuration values are stored.
@@ -440,6 +668,39 @@ final class DydapsConfigurablePacks extends Module
     {
         return Configuration::updateValue(PackConfig::KEY_DELETE_DATA, 0)
             && Configuration::updateValue(PackConfig::KEY_PRICE_ROUND_PRECISION, 6);
+    }
+
+    /**
+     * Ensure existing preserved tables include the latest module columns.
+     *
+     * @return bool True when schema checks and migrations succeed.
+     */
+    private function ensureInstalledSchema(): bool
+    {
+        $db = Db::getInstance();
+        $columns = [
+            'id_pack_order_component' => 'ALTER TABLE `' . _DB_PREFIX_ . 'dydaps_pack_refund` ADD `id_pack_order_component` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `id_pack_order`',
+            'id_order_slip' => 'ALTER TABLE `' . _DB_PREFIX_ . 'dydaps_pack_refund` ADD `id_order_slip` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `id_pack_order_component`',
+            'operation_key' => 'ALTER TABLE `' . _DB_PREFIX_ . 'dydaps_pack_refund` ADD `operation_key` VARCHAR(190) NOT NULL DEFAULT "" AFTER `id_order_slip`',
+        ];
+
+        foreach ($columns as $column => $sql) {
+            if (!$this->tableColumnExists('dydaps_pack_refund', $column) && !$db->execute($sql)) {
+                return false;
+            }
+        }
+
+        if (!$this->tableIndexExists('dydaps_pack_refund', 'operation_key')) {
+            $db->execute(
+                'UPDATE `' . _DB_PREFIX_ . 'dydaps_pack_refund`
+                SET operation_key = CONCAT("legacy:", id_pack_refund)
+                WHERE operation_key = ""'
+            );
+
+            return $db->execute('ALTER TABLE `' . _DB_PREFIX_ . 'dydaps_pack_refund` ADD UNIQUE KEY `operation_key` (`operation_key`)');
+        }
+
+        return true;
     }
 
     /**
@@ -477,6 +738,12 @@ final class DydapsConfigurablePacks extends Module
             'displayAdminOrderSide',
             'displayOrderDetail',
             'actionOrderStatusPostUpdate',
+            'actionProductCancel',
+            'actionOrderSlipAdd',
+            'displayPDFInvoice',
+            'displayPDFDeliverySlip',
+            'displayPDFOrderSlip',
+            'actionEmailSendBefore',
         ];
     }
 
@@ -543,6 +810,42 @@ final class DydapsConfigurablePacks extends Module
         $template = version_compare(_PS_VERSION_, '9.0.0', '>=') ? $configDir . 'routes.yml.dist' : $configDir . 'routes_legacy.yml.dist';
 
         return is_file($template) && copy($template, $configDir . 'routes.yml');
+    }
+
+    /**
+     * Return whether a module table column exists.
+     *
+     * @param string $table Table name without prefix.
+     * @param string $column Column name.
+     *
+     * @return bool True when the column exists.
+     */
+    private function tableColumnExists(string $table, string $column): bool
+    {
+        return (int) Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = "' . pSQL(_DB_PREFIX_ . $table) . '"
+            AND COLUMN_NAME = "' . pSQL($column) . '"'
+        ) > 0;
+    }
+
+    /**
+     * Return whether a module table index exists.
+     *
+     * @param string $table Table name without prefix.
+     * @param string $index Index name.
+     *
+     * @return bool True when the index exists.
+     */
+    private function tableIndexExists(string $table, string $index): bool
+    {
+        return (int) Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = "' . pSQL(_DB_PREFIX_ . $table) . '"
+            AND INDEX_NAME = "' . pSQL($index) . '"'
+        ) > 0;
     }
 
     /**
@@ -659,6 +962,26 @@ final class DydapsConfigurablePacks extends Module
         $orderRepository = new PackOrderRepository();
 
         return new PackStockMovementService($orderRepository, new PackRepository(), new PackStockRepository());
+    }
+
+    /**
+     * Resolve the refund service from the Symfony container.
+     *
+     * @return PackRefundService Refund synchronization service.
+     */
+    private function getRefundService(): PackRefundService
+    {
+        $container = SymfonyContainer::getInstance();
+        if ($container && $container->has('dydaps.configurable_packs.service.refund')) {
+            return $container->get('dydaps.configurable_packs.service.refund');
+        }
+
+        $orderRepository = new PackOrderRepository();
+
+        return new PackRefundService(
+            $orderRepository,
+            new PackStockMovementService($orderRepository, new PackRepository(), new PackStockRepository())
+        );
     }
 
     /**

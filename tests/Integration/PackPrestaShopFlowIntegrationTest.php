@@ -24,6 +24,8 @@ use Dydaps\ConfigurablePacks\Service\PackDiscountAllocator;
 use Dydaps\ConfigurablePacks\Service\PackPriceCalculator;
 use Dydaps\ConfigurablePacks\Service\PackStockCalculator;
 use Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator;
+use PrestaShop\PrestaShop\Core\Domain\Order\Command\IssuePartialRefundCommand;
+use PrestaShop\PrestaShop\Core\Domain\Order\VoucherRefundType;
 
 if (!defined('_PS_VERSION_') || version_compare(_PS_VERSION_, '1.7.8.0', '<')) {
     throw new RuntimeException('This integration test requires PrestaShop 1.7.8 or newer.');
@@ -44,6 +46,7 @@ final class PackPrestaShopFlowIntegrationTest
     private int $idCurrency;
     private int $idCustomer;
     private int $idAddress;
+    private ?object $kernel = null;
 
     /**
      * @return void
@@ -64,6 +67,7 @@ final class PackPrestaShopFlowIntegrationTest
             new PackAvailabilityService(new PackStockCalculator(new PackStockRepository())),
             new PackConfigurationValidator($this->packRepository)
         );
+        $this->bootAdminKernel();
     }
 
     /**
@@ -82,11 +86,35 @@ final class PackPrestaShopFlowIntegrationTest
         $this->assertRepeatedConfigurationSynchronizesQuantity($componentsPack);
         $this->assertDeletionAndCartClearCleanupRows($componentsPack);
         $this->assertOrderSnapshotAndComponentStockMovements($componentsPack);
+        $this->assertNativeRefundCreditSlipAndDocumentHooks($componentsPack);
+        $this->assertSnapshotsRemainHistoricalAfterCatalogChanges($componentsPack);
 
         $validateOnlyPack = $this->createPackFixture('validate_only');
         $this->assertValidateOnlyDoesNotMoveComponentStock($validateOnlyPack);
 
         echo "PrestaShop pack flow integration tests passed on " . _PS_VERSION_ . ".\n";
+    }
+
+    /**
+     * Boot the Admin kernel so PrestaShop 9 command-bus services are available
+     * to the integration test while keeping legacy objects initialized.
+     *
+     * @return void
+     */
+    private function bootAdminKernel(): void
+    {
+        if (!class_exists('AdminKernel')) {
+            return;
+        }
+
+        $kernel = new AdminKernel('prod', false);
+        $kernel->boot();
+        $GLOBALS['kernel'] = $kernel;
+        Context::getContext()->container = $kernel->getContainer();
+        if (class_exists('\PrestaShop\PrestaShop\Adapter\SymfonyContainer')) {
+            \PrestaShop\PrestaShop\Adapter\SymfonyContainer::resetStaticCache();
+        }
+        $this->kernel = $kernel;
     }
 
     /**
@@ -381,6 +409,112 @@ final class PackPrestaShopFlowIntegrationTest
      *
      * @return void
      */
+    private function assertNativeRefundCreditSlipAndDocumentHooks(array $fixture): void
+    {
+        if (!$this->kernel || !Context::getContext()->container || !Context::getContext()->container->has('prestashop.core.command_bus')) {
+            throw new RuntimeException('Admin command bus is required for native refund integration tests.');
+        }
+
+        $beforeM = $this->stock($fixture['id_product_m']);
+        $cart = $this->createCart();
+        $this->addConfiguredPack($cart, $fixture, $fixture['id_product_m']);
+        $order = $this->validateCart($cart);
+        $snapshot = $this->getSnapshots((int) $order->id)[0] ?? null;
+        if (!$snapshot) {
+            throw new RuntimeException('Refund fixture order has no pack snapshot.');
+        }
+
+        $idOrderDetail = (int) $snapshot['id_order_detail'];
+        $amount = number_format((float) $snapshot['unit_price_tax_incl'], 6, '.', '');
+        Context::getContext()->container->get('prestashop.core.command_bus')->handle(new IssuePartialRefundCommand(
+            (int) $order->id,
+            [
+                $idOrderDetail => [
+                    'quantity' => 1,
+                    'amount' => $amount,
+                ],
+            ],
+            '0',
+            true,
+            true,
+            false,
+            VoucherRefundType::PRODUCT_PRICES_REFUND
+        ));
+
+        $this->assertSame(1, $this->countModuleRefunds((int) $snapshot['id_pack_order']), 'Native partial refund must create one module refund row.');
+        $this->assertTrue($this->countOrderSlips((int) $order->id) >= 1, 'Native partial refund must create a credit slip.');
+        $this->assertSame($beforeM, $this->stock($fixture['id_product_m']), 'Native refund with restock must restore component stock exactly once.');
+
+        $pdfHook = Hook::exec('displayPDFInvoice', ['object' => $this->getFirstOrderInvoice((int) $order->id)]);
+        $this->assertTrue(strpos((string) $pdfHook, 'DYDAPS IT Component M') !== false, 'Invoice PDF hook must include historical pack components.');
+
+        $templateVars = [
+            '{id_order}' => (int) $order->id,
+            '{products}' => '',
+            '{products_txt}' => '',
+        ];
+        Hook::exec('actionEmailSendBefore', [
+            'idLang' => &$this->idLang,
+            'template' => 'order_conf',
+            'subject' => 'Integration',
+            'templateVars' => &$templateVars,
+            'to' => 'integration@example.test',
+        ]);
+        $this->assertTrue(strpos((string) $templateVars['{products_txt}'], 'DYDAPS IT Component M') !== false, 'Order confirmation email variables must include historical pack components.');
+    }
+
+    /**
+     * @param array<string, int> $fixture
+     *
+     * @return void
+     */
+    private function assertSnapshotsRemainHistoricalAfterCatalogChanges(array $fixture): void
+    {
+        $cart = $this->createCart();
+        $this->addConfiguredPack($cart, $fixture, $fixture['id_product_m']);
+        $order = $this->validateCart($cart);
+        $snapshot = $this->getSnapshots((int) $order->id)[0] ?? null;
+        if (!$snapshot) {
+            throw new RuntimeException('Historical fixture order has no pack snapshot.');
+        }
+        $componentsBefore = Db::getInstance()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_order_component` WHERE id_pack_order = ' . (int) $snapshot['id_pack_order']);
+        $componentBefore = $componentsBefore[0] ?? null;
+        if (!$componentBefore) {
+            throw new RuntimeException('Historical fixture order has no component snapshot.');
+        }
+
+        $product = new Product($fixture['id_product_m']);
+        foreach (Language::getLanguages(false) as $language) {
+            $product->name[(int) $language['id_lang']] = 'DYDAPS IT Mutated Component';
+        }
+        $product->reference = 'MUTATED';
+        $product->price = 999;
+        $product->update();
+        $this->packRepository->replaceComponents($fixture['id_pack'], [[
+            'name' => 'Mutated component',
+            'component_type' => 'choice',
+            'optional' => 0,
+            'quantity' => 1,
+            'min_quantity' => 1,
+            'max_quantity' => 1,
+            'pricing_behavior' => 'native',
+            'products' => [
+                ['id_product' => $fixture['id_product_xl'], 'id_product_attribute' => 0, 'is_default' => 1],
+            ],
+        ]], $this->idLang);
+
+        $componentsAfter = Db::getInstance()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_order_component` WHERE id_pack_order = ' . (int) $snapshot['id_pack_order']);
+        $componentAfter = $componentsAfter[0] ?? null;
+        $this->assertSame((string) $componentBefore['product_name'], (string) $componentAfter['product_name'], 'Historical product name must remain unchanged after catalog mutation.');
+        $this->assertSame((string) $componentBefore['product_reference'], (string) $componentAfter['product_reference'], 'Historical product reference must remain unchanged after catalog mutation.');
+        $this->assertSame((string) $componentBefore['unit_price_tax_excl'], (string) $componentAfter['unit_price_tax_excl'], 'Historical component price must remain unchanged after catalog mutation.');
+    }
+
+    /**
+     * @param array<string, int> $fixture
+     *
+     * @return void
+     */
     private function addConfiguredPack(Cart $cart, array $fixture, int $idProduct): void
     {
         $components = $this->packRepository->getComponents($fixture['id_pack'], $this->idLang);
@@ -478,6 +612,26 @@ final class PackPrestaShopFlowIntegrationTest
             'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'order_detail`
             WHERE id_order = ' . (int) $idOrder . ' AND id_customization = ' . (int) $idCustomization
         );
+    }
+
+    private function countModuleRefunds(int $idPackOrder): int
+    {
+        return (int) Db::getInstance()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'dydaps_pack_refund` WHERE id_pack_order = ' . (int) $idPackOrder);
+    }
+
+    private function countOrderSlips(int $idOrder): int
+    {
+        return (int) Db::getInstance()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'order_slip` WHERE id_order = ' . (int) $idOrder);
+    }
+
+    private function getFirstOrderInvoice(int $idOrder): OrderInvoice
+    {
+        $idOrderInvoice = (int) Db::getInstance()->getValue('SELECT id_order_invoice FROM `' . _DB_PREFIX_ . 'order_invoice` WHERE id_order = ' . (int) $idOrder . ' ORDER BY id_order_invoice ASC');
+        if ($idOrderInvoice <= 0) {
+            throw new RuntimeException('Order invoice was not generated.');
+        }
+
+        return new OrderInvoice($idOrderInvoice);
     }
 
     private function getModuleQuantity(int $idCart, int $idCustomization): int
