@@ -6,6 +6,9 @@
 - Added product and combination search for pack component selection.
 - Added server-side validation for builder payloads before component persistence.
 - Improved back-office component labels so merchants no longer need to edit JSON manually.
+- Improved historical order display with component, price, tax and recorded refund details from immutable snapshots.
+- Added remaining pack-refund quantity validation to prevent over-refunding through the module refund service.
+- Fixed French translation catalogs encoding.
 - Kept full declared compatibility scoped to PrestaShop 8.1 or later.
 
 ## 1.0.1 - 2026-08-11

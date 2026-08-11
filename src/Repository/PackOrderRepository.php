@@ -172,6 +172,37 @@ final class PackOrderRepository
     }
 
     /**
+     * Return refund rows already recorded for a configured pack order.
+     *
+     * @param int $idPackOrder Configured pack order snapshot identifier.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getRefunds(int $idPackOrder): array
+    {
+        return \Db::getInstance()->executeS(
+            'SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_refund`
+            WHERE id_pack_order = ' . (int) $idPackOrder . '
+            ORDER BY id_pack_refund ASC'
+        ) ?: [];
+    }
+
+    /**
+     * Return the total pack quantity already refunded for a snapshot.
+     *
+     * @param int $idPackOrder Configured pack order snapshot identifier.
+     *
+     * @return int Refunded pack quantity.
+     */
+    public function getRefundedQuantity(int $idPackOrder): int
+    {
+        return (int) \Db::getInstance()->getValue(
+            'SELECT COALESCE(SUM(quantity), 0) FROM `' . _DB_PREFIX_ . 'dydaps_pack_refund`
+            WHERE id_pack_order = ' . (int) $idPackOrder
+        );
+    }
+
+    /**
      * Return whether a snapshot already has component rows.
      *
      * @param int $idPackOrder Configured pack order snapshot identifier.

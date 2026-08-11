@@ -43,7 +43,7 @@ final class PackRefundService
      *
      * @return array{tax_excl: float, tax_incl: float} Refund amounts in the order currency.
      *
-     * @throws \RuntimeException When the pack order snapshot cannot be found.
+     * @throws \RuntimeException When the pack order snapshot cannot be found or the requested quantity is no longer refundable.
      */
     public function refundPack(int $idOrder, int $idPackOrder, int $idShop, int $quantity, bool $restoreStock): array
     {
@@ -59,7 +59,13 @@ final class PackRefundService
             throw new \RuntimeException('Pack order snapshot not found.');
         }
 
-        $quantity = min(max(1, $quantity), (int) $snapshot['quantity']);
+        $orderedQuantity = max(1, (int) $snapshot['quantity']);
+        $alreadyRefunded = $this->orderRepository->getRefundedQuantity($idPackOrder);
+        $remainingQuantity = $orderedQuantity - $alreadyRefunded;
+        if ($quantity <= 0 || $quantity > $remainingQuantity) {
+            throw new \RuntimeException('The requested pack refund quantity exceeds the remaining refundable quantity.');
+        }
+
         $ratio = $quantity / max(1, (int) $snapshot['quantity']);
         $amounts = [
             'tax_excl' => round((float) $snapshot['total_price_tax_excl'] * $ratio, 6),

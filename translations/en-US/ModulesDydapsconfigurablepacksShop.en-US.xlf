@@ -11,6 +11,14 @@
       <trans-unit id="component_available"><source>Available</source><target>Available</target></trans-unit>
       <trans-unit id="component_unavailable"><source>Unavailable</source><target>Unavailable</target></trans-unit>
       <trans-unit id="estimated_components_total"><source>Estimated components total:</source><target>Estimated components total:</target></trans-unit>
+      <trans-unit id="reference"><source>Reference:</source><target>Reference:</target></trans-unit>
+      <trans-unit id="unit_price_tax_excl"><source>Unit price tax excl.:</source><target>Unit price tax excl.:</target></trans-unit>
+      <trans-unit id="unit_price_tax_incl"><source>Unit price tax incl.:</source><target>Unit price tax incl.:</target></trans-unit>
+      <trans-unit id="tax_excl"><source>Tax excl.:</source><target>Tax excl.:</target></trans-unit>
+      <trans-unit id="tax_incl"><source>Tax incl.:</source><target>Tax incl.:</target></trans-unit>
+      <trans-unit id="tax"><source>Tax:</source><target>Tax:</target></trans-unit>
+      <trans-unit id="recorded_refunds"><source>Recorded refunds:</source><target>Recorded refunds:</target></trans-unit>
+      <trans-unit id="stock_restored"><source>Stock restored</source><target>Stock restored</target></trans-unit>
     </body>
   </file>
 </xliff>

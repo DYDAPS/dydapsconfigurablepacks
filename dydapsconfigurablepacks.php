@@ -415,10 +415,17 @@ final class DydapsConfigurablePacks extends Module
         if ($idOrder <= 0) {
             return '';
         }
-        $snapshots = (new PackOrderRepository())->getOrderSnapshots($idOrder);
+        $repository = new PackOrderRepository();
+        $snapshots = $repository->getOrderSnapshots($idOrder);
         if (!$snapshots) {
             return '';
         }
+        foreach ($snapshots as &$snapshot) {
+            $idPackOrder = (int) ($snapshot['id_pack_order'] ?? 0);
+            $snapshot['components'] = $repository->getComponents($idPackOrder);
+            $snapshot['refunds'] = $repository->getRefunds($idPackOrder);
+        }
+        unset($snapshot);
         $this->context->smarty->assign(['dydaps_pack_order_snapshots' => $snapshots]);
 
         return (string) $this->fetch('module:' . $this->name . '/views/templates/hook/order_pack_details.tpl');

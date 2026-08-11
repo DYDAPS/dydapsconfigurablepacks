@@ -5,7 +5,7 @@
       <trans-unit id="module_display_name"><source>DYDAPS - Configurable Packs</source><target>DYDAPS - Packs configurables</target></trans-unit>
       <trans-unit id="module_description"><source>Create and sell configurable product packs.</source><target>Créez et vendez des packs de produits configurables.</target></trans-unit>
       <trans-unit id="module_uninstall_confirm"><source>Uninstall module? Pack data can be retained or removed depending on module configuration.</source><target>Désinstaller le module ? Les données des packs peuvent être conservées ou supprimées selon la configuration du module.</target></trans-unit>
-      <trans-unit id="symfony_route_unavailable"><source>The modern configuration route is not available. Please clear the Symfony cache.</source><target>La route de configuration moderne n’est pas disponible. Veuillez vider le cache Symfony.</target></trans-unit>
+      <trans-unit id="symfony_route_unavailable"><source>The modern configuration route is not available. Please clear the Symfony cache.</source><target>La route de configuration moderne n'est pas disponible. Veuillez vider le cache Symfony.</target></trans-unit>
       <trans-unit id="packs_page_title"><source>Configurable Packs</source><target>Packs configurables</target></trans-unit>
       <trans-unit id="product_extra_title"><source>Configurable pack</source><target>Pack configurable</target></trans-unit>
       <trans-unit id="product_extra_description"><source>Manage this product pack configuration from the DYDAPS configurable packs page.</source><target>Gérez la configuration de ce pack depuis la page DYDAPS des packs configurables.</target></trans-unit>
