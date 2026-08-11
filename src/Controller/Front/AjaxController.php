@@ -89,11 +89,7 @@ final class AjaxController
         if (!$pack || (int) $pack['active'] !== 1) {
             return $this->json(['ok' => false, 'error' => $this->trans('Pack not found.')], 404);
         }
-        $components = $this->repository->getComponents((int) $pack['id_pack'], (int) $context->language->id);
-        foreach ($components as &$component) {
-            $component['products'] = $this->repository->getAllowedSelections((int) $component['id_component']);
-        }
-        unset($component);
+        $components = $this->repository->describeComponents((int) $pack['id_pack'], (int) $context->language->id, (int) $context->shop->id, (int) $context->currency->id, (int) $context->customer->id);
 
         return $this->json(['ok' => true, 'pack' => $pack, 'components' => $components]);
     }

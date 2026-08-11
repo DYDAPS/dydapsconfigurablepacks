@@ -16,10 +16,18 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 }
 
 use Dydaps\ConfigurablePacks\Config\PackConfig;
+use Dydaps\ConfigurablePacks\Model\PackConfiguration;
+use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
 use Dydaps\ConfigurablePacks\Repository\PackOrderRepository;
 use Dydaps\ConfigurablePacks\Repository\PackRepository;
+use Dydaps\ConfigurablePacks\Repository\PackStockRepository;
+use Dydaps\ConfigurablePacks\Service\PackDiscountAllocator;
+use Dydaps\ConfigurablePacks\Service\PackPriceCalculator;
+use Dydaps\ConfigurablePacks\Service\PackCartSynchronizer;
 use Dydaps\ConfigurablePacks\Service\PackOrderService;
-use Dydaps\ConfigurablePacks\Service\PackRefundService;
+use Dydaps\ConfigurablePacks\Service\PackStockMovementService;
+use Dydaps\ConfigurablePacks\Service\PrestaShopCompatibilityService;
+use Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator;
 use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
 
 /**
@@ -44,7 +52,7 @@ final class DydapsConfigurablePacks extends Module
     {
         $this->name = 'dydapsconfigurablepacks';
         $this->tab = 'catalog';
-        $this->version = '1.0.0';
+        $this->version = '1.0.1';
         $this->author = 'DYDAPS';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -54,7 +62,7 @@ final class DydapsConfigurablePacks extends Module
         $this->displayName = $this->trans('DYDAPS - Configurable Packs', [], 'Modules.Dydapsconfigurablepacks.Admin');
         $this->description = $this->trans('Create and sell configurable product packs.', [], 'Modules.Dydapsconfigurablepacks.Admin');
         $this->confirmUninstall = $this->trans('Uninstall module? Pack data can be retained or removed depending on module configuration.', [], 'Modules.Dydapsconfigurablepacks.Admin');
-        $this->ps_versions_compliancy = ['min' => '1.7.8.0', 'max' => '9.99.999'];
+        $this->ps_versions_compliancy = (new PrestaShopCompatibilityService())->getModuleCompliancy();
     }
 
     /**
@@ -126,6 +134,8 @@ final class DydapsConfigurablePacks extends Module
      */
     public function hookDisplayHeader(array $params = []): void
     {
+        $this->ensureRequiredHooksRegistered();
+
         $controller = $this->context->controller ?? null;
         if (!$controller || ($controller->controller_type ?? null) !== 'front') {
             return;
@@ -208,6 +218,118 @@ final class DydapsConfigurablePacks extends Module
     }
 
     /**
+     * Synchronize module cart rows after native cart mutations.
+     *
+     * @param array<string, mixed> $params Hook parameters.
+     *
+     * @return void
+     */
+    public function hookActionCartSave(array $params): void
+    {
+        try {
+            $cart = $params['cart'] ?? $this->context->cart ?? null;
+            if (!$cart instanceof Cart || !(int) $cart->id) {
+                return;
+            }
+
+            $this->getCartSynchronizer()->synchronizeCart($cart);
+        } catch (Throwable $e) {
+            $this->logError('Cart synchronization failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Remove module cart rows after a native cart is deleted.
+     *
+     * @param array<string, mixed> $params Hook parameters.
+     *
+     * @return void
+     */
+    public function hookActionObjectCartDeleteAfter(array $params): void
+    {
+        try {
+            $cart = $params['object'] ?? null;
+            if (!$cart instanceof Cart || !(int) $cart->id) {
+                return;
+            }
+
+            (new PackCartRepository())->deleteByCart((int) $cart->id);
+        } catch (Throwable $e) {
+            $this->logError('Deleted cart cleanup failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Apply the server-side pack price to the native cart/order calculation.
+     *
+     * PrestaShop passes the mutable post-tax/post-reduction price by reference.
+     * The pack line is resolved through the native customization id created at add time.
+     *
+     * @param array<string, mixed> $params Product price calculation parameters.
+     *
+     * @return void
+     */
+    public function hookActionProductPriceCalculation(array &$params): void
+    {
+        try {
+            if (!array_key_exists('price', $params)) {
+                return;
+            }
+
+            $idCart = (int) ($params['id_cart'] ?? 0);
+            $idProduct = (int) ($params['id_product'] ?? 0);
+            $idCustomization = (int) ($params['id_customization'] ?? 0);
+            if ($idCart <= 0 || $idProduct <= 0 || $idCustomization <= 0) {
+                return;
+            }
+
+            $configuration = (new PackCartRepository())->getCartConfigurationByCustomization($idCart, $idCustomization);
+            if (!$configuration || (int) $configuration['id_product'] !== $idProduct) {
+                return;
+            }
+
+            if (!empty($params['only_reduc'])) {
+                if (array_key_exists('specific_price_reduction', $params)) {
+                    $params['specific_price_reduction'] = 0.0;
+                }
+
+                return;
+            }
+
+            $configurationData = json_decode((string) ($configuration['configuration_json'] ?? ''), true);
+            if (!is_array($configurationData)) {
+                throw new RuntimeException('Invalid stored pack configuration for price calculation.');
+            }
+
+            $repository = new PackRepository();
+            $validatedConfiguration = (new PackConfigurationValidator($repository))->validateAndNormalize(
+                new PackConfiguration((int) $configurationData['id_product'], (array) ($configurationData['components'] ?? []), 1),
+                (int) ($params['id_shop'] ?? $this->context->shop->id ?? 0),
+                (int) ($params['id_lang'] ?? $this->context->language->id ?? 0)
+            );
+            $calculatedPrice = (new PackPriceCalculator($repository, new PackDiscountAllocator()))->calculate(
+                $validatedConfiguration,
+                (int) ($params['id_shop'] ?? $this->context->shop->id ?? 0),
+                (int) ($params['id_lang'] ?? $this->context->language->id ?? 0),
+                (int) ($params['id_currency'] ?? $this->context->currency->id ?? 0),
+                (int) ($params['id_customer'] ?? $this->context->customer->id ?? 0)
+            );
+
+            $price = !empty($params['use_tax'])
+                ? $calculatedPrice->unitTaxIncl
+                : $calculatedPrice->unitTaxExcl;
+
+            $decimals = max(0, (int) ($params['decimals'] ?? 6));
+            $params['price'] = class_exists('Tools') ? Tools::ps_round($price, $decimals) : round($price, $decimals);
+            if (array_key_exists('specific_price_reduction', $params)) {
+                $params['specific_price_reduction'] = 0.0;
+            }
+        } catch (Throwable $e) {
+            $this->logError('Price calculation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Display configured pack snapshots in the main admin order view.
      *
      * @param array<string, mixed> $params Hook parameters containing id_order when available.
@@ -256,8 +378,18 @@ final class DydapsConfigurablePacks extends Module
     {
         $order = isset($params['id_order']) ? new Order((int) $params['id_order']) : null;
         $state = $params['newOrderStatus'] ?? null;
-        if (!$order instanceof Order || !$state instanceof OrderState || !(bool) $state->logable) {
+        if (!$order instanceof Order || !$state instanceof OrderState || !$this->isStockRestoringStatus((int) $state->id)) {
             return;
+        }
+
+        try {
+            foreach ((new PackOrderRepository())->getOrderSnapshots((int) $order->id) as $snapshot) {
+                $idPackOrder = (int) $snapshot['id_pack_order'];
+                $this->getStockMovementService()->restoreOrderComponents((int) $order->id, $idPackOrder, (int) $order->id_shop);
+                $this->getStockMovementService()->neutralizeContainerRestockIfNeeded((int) $order->id, $idPackOrder, (int) $order->id_shop);
+            }
+        } catch (Throwable $e) {
+            $this->logError('Order status stock synchronization failed: ' . $e->getMessage());
         }
     }
 
@@ -310,13 +442,49 @@ final class DydapsConfigurablePacks extends Module
      */
     private function registerRequiredHooks(): bool
     {
-        foreach (['displayHeader', 'displayProductAdditionalInfo', 'displayAdminProductsExtra', 'actionValidateOrder', 'displayAdminOrderMain', 'displayAdminOrderSide', 'displayOrderDetail', 'actionOrderStatusPostUpdate'] as $hook) {
+        foreach ($this->getRequiredHooks() as $hook) {
             if (!$this->registerHook($hook)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /**
+     * Return every hook required by the module.
+     *
+     * @return array<int, string> Hook names.
+     */
+    private function getRequiredHooks(): array
+    {
+        return [
+            'displayHeader',
+            'displayProductAdditionalInfo',
+            'displayAdminProductsExtra',
+            'actionCartSave',
+            'actionObjectCartDeleteAfter',
+            'actionValidateOrder',
+            'actionProductPriceCalculation',
+            'displayAdminOrderMain',
+            'displayAdminOrderSide',
+            'displayOrderDetail',
+            'actionOrderStatusPostUpdate',
+        ];
+    }
+
+    /**
+     * Registers hooks added after initial installation.
+     *
+     * @return void
+     */
+    private function ensureRequiredHooksRegistered(): void
+    {
+        foreach ($this->getRequiredHooks() as $hook) {
+            if (!$this->isRegisteredInHook($hook)) {
+                $this->registerHook($hook);
+            }
+        }
     }
 
     /**
@@ -433,6 +601,86 @@ final class DydapsConfigurablePacks extends Module
             return $container->get('dydaps.configurable_packs.service.order');
         }
 
-        throw new RuntimeException('Pack order service is unavailable.');
+        $packRepository = new PackRepository();
+        $orderRepository = new PackOrderRepository();
+        $stockMovementService = new PackStockMovementService($orderRepository, $packRepository, new PackStockRepository());
+
+        return new PackOrderService(
+            new PackCartRepository(),
+            new PackCartSynchronizer(new PackCartRepository()),
+            new \Dydaps\ConfigurablePacks\Service\PackSnapshotService(
+                $packRepository,
+                $orderRepository,
+                new PackPriceCalculator($packRepository, new PackDiscountAllocator()),
+                new PackConfigurationValidator($packRepository)
+            ),
+            $stockMovementService
+        );
+    }
+
+    /**
+     * Resolve the cart synchronizer from the Symfony container.
+     *
+     * @return PackCartSynchronizer Cart synchronization service.
+     *
+     * @throws RuntimeException When the service is unavailable.
+     */
+    private function getCartSynchronizer(): PackCartSynchronizer
+    {
+        $container = SymfonyContainer::getInstance();
+        if ($container && $container->has('dydaps.configurable_packs.service.cart_synchronizer')) {
+            return $container->get('dydaps.configurable_packs.service.cart_synchronizer');
+        }
+
+        return new PackCartSynchronizer(new PackCartRepository());
+    }
+
+    /**
+     * Resolve the stock movement service from the Symfony container.
+     *
+     * @return PackStockMovementService Stock movement service.
+     *
+     * @throws RuntimeException When the service is unavailable.
+     */
+    private function getStockMovementService(): PackStockMovementService
+    {
+        $container = SymfonyContainer::getInstance();
+        if ($container && $container->has('dydaps.configurable_packs.service.stock_movement')) {
+            return $container->get('dydaps.configurable_packs.service.stock_movement');
+        }
+
+        $orderRepository = new PackOrderRepository();
+
+        return new PackStockMovementService($orderRepository, new PackRepository(), new PackStockRepository());
+    }
+
+    /**
+     * Return whether a status normally restores stock in PrestaShop.
+     *
+     * @param int $idOrderState Native order state identifier.
+     *
+     * @return bool True when the status cancels or refunds the order.
+     */
+    private function isStockRestoringStatus(int $idOrderState): bool
+    {
+        $restoringStatuses = [
+            (int) Configuration::get('PS_OS_CANCELED'),
+            (int) Configuration::get('PS_OS_REFUND'),
+            (int) Configuration::get('PS_OS_ERROR'),
+        ];
+
+        return in_array($idOrderState, array_filter($restoringStatuses), true);
+    }
+
+    /**
+     * Writes a module-prefixed PrestaShop log entry.
+     *
+     * @param string $message Log message.
+     *
+     * @return void
+     */
+    private function logError(string $message): void
+    {
+        PrestaShopLogger::addLog('[dydapsconfigurablepacks] ' . $message, 3);
     }
 }

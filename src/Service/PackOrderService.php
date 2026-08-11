@@ -15,19 +15,22 @@ if (!defined('_PS_VERSION_')) {
 final class PackOrderService
 {
     private PackCartRepository $cartRepository;
+    private PackCartSynchronizer $cartSynchronizer;
     private PackSnapshotService $snapshotService;
     private PackStockMovementService $stockMovementService;
 
     /**
      * @param PackCartRepository $cartRepository Repository containing configured cart rows.
+     * @param PackCartSynchronizer $cartSynchronizer Service aligning module rows with native cart rows.
      * @param PackSnapshotService $snapshotService Service creating immutable order snapshots.
      * @param PackStockMovementService $stockMovementService Service applying component stock movements.
      *
      * @return void
      */
-    public function __construct(PackCartRepository $cartRepository, PackSnapshotService $snapshotService, PackStockMovementService $stockMovementService)
+    public function __construct(PackCartRepository $cartRepository, PackCartSynchronizer $cartSynchronizer, PackSnapshotService $snapshotService, PackStockMovementService $stockMovementService)
     {
         $this->cartRepository = $cartRepository;
+        $this->cartSynchronizer = $cartSynchronizer;
         $this->snapshotService = $snapshotService;
         $this->stockMovementService = $stockMovementService;
     }
@@ -46,9 +49,11 @@ final class PackOrderService
      */
     public function handleValidatedOrder(\Order $order, \Cart $cart): void
     {
+        $this->cartSynchronizer->synchronizeCart($cart);
         foreach ($this->cartRepository->getCartConfigurations((int) $cart->id) as $configuration) {
             $idPackOrder = $this->snapshotService->createOrderSnapshot($order, $cart, $configuration);
             $this->stockMovementService->decrementOrderComponents((int) $order->id, $idPackOrder, (int) $order->id_shop);
+            $this->stockMovementService->restoreOrderContainerIfNeeded((int) $order->id, $idPackOrder, (int) $order->id_shop);
         }
     }
 }

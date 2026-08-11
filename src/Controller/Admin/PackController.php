@@ -186,7 +186,11 @@ final class PackController extends AbstractDydapsAdminController
             'global_discount_percent' => 0,
             'global_discount_amount_tax_excl' => 0,
             'stock_behavior' => 'components',
+            'components_json' => $this->getDefaultComponentsJson(),
         ];
+        if ($pack) {
+            $data['components_json'] = json_encode($this->repository->getComponentsForAdmin((int) $pack['id_pack'], (int) \Context::getContext()->language->id), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
 
         $form = $this->createForm(PackGeneralType::class, $data);
         $form->handleRequest($request);
@@ -195,7 +199,15 @@ final class PackController extends AbstractDydapsAdminController
             $payload = $form->getData();
             $payload['id_pack'] = (int) ($pack['id_pack'] ?? 0);
             $payload['id_shop'] = (int) ($pack['id_shop'] ?? \Context::getContext()->shop->id);
-            $this->repository->savePack($payload);
+            $components = json_decode((string) ($payload['components_json'] ?? '[]'), true);
+            if (!is_array($components)) {
+                $this->addFlash('error', $this->t('The pack component definition is invalid.', 'Modules.Dydapsconfigurablepacks.Admin'));
+
+                return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
+            }
+            unset($payload['components_json']);
+            $idPack = $this->repository->savePack($payload);
+            $this->repository->replaceComponents($idPack, array_values($components), (int) \Context::getContext()->language->id);
             $this->addFlash('success', $this->t('Pack configuration saved.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
             return $this->redirectToRoute('dydaps_configurable_packs_index');
@@ -207,6 +219,40 @@ final class PackController extends AbstractDydapsAdminController
             'form' => $form->createView(),
             'canUpdate' => true,
         ]);
+    }
+
+    /**
+     * Return an editable component example for newly created packs.
+     *
+     * @return string JSON example.
+     */
+    private function getDefaultComponentsJson(): string
+    {
+        return (string) json_encode([
+            [
+                'name' => 'Component 1',
+                'position' => 0,
+                'component_type' => 'choice',
+                'optional' => false,
+                'quantity' => 1,
+                'min_quantity' => 1,
+                'max_quantity' => 1,
+                'pricing_behavior' => 'native',
+                'fixed_price_tax_excl' => 0,
+                'discount_percent' => 0,
+                'surcharge_tax_excl' => 0,
+                'active' => 1,
+                'products' => [
+                    [
+                        'id_product' => 0,
+                        'id_product_attribute' => 0,
+                        'is_default' => true,
+                        'position' => 0,
+                        'active' => 1,
+                    ],
+                ],
+            ],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
     /**

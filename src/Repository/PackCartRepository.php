@@ -21,7 +21,9 @@ final class PackCartRepository
      * @param int $idCart Cart identifier.
      * @param int $idProduct Native PrestaShop product sold as the pack.
      * @param int $idProductAttribute Pack product combination identifier, usually zero.
+     * @param int $idCustomization Native PrestaShop customization identifier used to split cart rows.
      * @param string $hash Stable configuration hash.
+     * @param int $quantity Absolute pack quantity to store for the native cart line.
      * @param array<string, mixed> $configuration Serializable pack configuration snapshot.
      * @param array{
      *     unit_tax_excl?: float,
@@ -30,7 +32,7 @@ final class PackCartRepository
      *
      * @return bool True when the row is inserted or updated.
      */
-    public function saveConfiguration(int $idCart, int $idProduct, int $idProductAttribute, string $hash, array $configuration, array $price): bool
+    public function saveConfiguration(int $idCart, int $idProduct, int $idProductAttribute, int $idCustomization, string $hash, int $quantity, array $configuration, array $price): bool
     {
         $existingId = (int) \Db::getInstance()->getValue(
             'SELECT id_cart_pack FROM `' . _DB_PREFIX_ . 'dydaps_pack_cart`
@@ -38,19 +40,32 @@ final class PackCartRepository
             AND id_product_attribute = ' . (int) $idProductAttribute . ' AND configuration_hash = "' . pSQL($hash) . '"'
         );
 
+        $normalizedQuantity = max(1, (int) $quantity);
         $payload = [
             'id_cart' => $idCart,
             'id_product' => $idProduct,
             'id_product_attribute' => $idProductAttribute,
+            'id_customization' => $idCustomization,
             'configuration_hash' => pSQL($hash),
             'configuration_json' => pSQL(json_encode($configuration, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+            'quantity' => $normalizedQuantity,
             'unit_price_tax_excl' => (float) ($price['unit_tax_excl'] ?? 0),
             'unit_price_tax_incl' => (float) ($price['unit_tax_incl'] ?? 0),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 
         if ($existingId > 0) {
-            return \Db::getInstance()->update('dydaps_pack_cart', $payload, 'id_cart_pack = ' . $existingId);
+            unset($payload['id_customization']);
+
+            return \Db::getInstance()->execute(
+                'UPDATE `' . _DB_PREFIX_ . 'dydaps_pack_cart`
+                SET configuration_json = "' . pSQL((string) $payload['configuration_json']) . '",
+                    quantity = ' . $normalizedQuantity . ',
+                    unit_price_tax_excl = ' . (float) $payload['unit_price_tax_excl'] . ',
+                    unit_price_tax_incl = ' . (float) $payload['unit_price_tax_incl'] . ',
+                    updated_at = "' . pSQL((string) $payload['updated_at']) . '"
+                WHERE id_cart_pack = ' . $existingId
+            );
         }
 
         $payload['created_at'] = date('Y-m-d H:i:s');
@@ -68,5 +83,154 @@ final class PackCartRepository
     public function getCartConfigurations(int $idCart): array
     {
         return \Db::getInstance()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_cart` WHERE id_cart = ' . (int) $idCart) ?: [];
+    }
+
+    /**
+     * Return one stored pack configuration by native customization id.
+     *
+     * @param int $idCart Cart identifier.
+     * @param int $idCustomization Native customization identifier.
+     *
+     * @return array<string, mixed>|null Stored module cart row.
+     */
+    public function getCartConfigurationByCustomization(int $idCart, int $idCustomization): ?array
+    {
+        $row = \Db::getInstance()->getRow(
+            'SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_cart`
+            WHERE id_cart = ' . (int) $idCart . ' AND id_customization = ' . (int) $idCustomization
+        );
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * Update the synchronized module quantity for one native customization.
+     *
+     * @param int $idCart Cart identifier.
+     * @param int $idCustomization Native customization identifier.
+     * @param int $quantity Native cart line quantity.
+     *
+     * @return bool True when the row is updated.
+     */
+    public function updateQuantityByCustomization(int $idCart, int $idCustomization, int $quantity): bool
+    {
+        return \Db::getInstance()->update(
+            'dydaps_pack_cart',
+            [
+                'quantity' => max(1, $quantity),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
+            'id_cart = ' . (int) $idCart . ' AND id_customization = ' . (int) $idCustomization
+        );
+    }
+
+    /**
+     * Delete one stored configuration by native customization id.
+     *
+     * @param int $idCart Cart identifier.
+     * @param int $idCustomization Native customization identifier.
+     *
+     * @return bool True when the delete query succeeds.
+     */
+    public function deleteByCustomization(int $idCart, int $idCustomization): bool
+    {
+        return \Db::getInstance()->delete(
+            'dydaps_pack_cart',
+            'id_cart = ' . (int) $idCart . ' AND id_customization = ' . (int) $idCustomization
+        );
+    }
+
+    /**
+     * Delete every stored configuration for a cart.
+     *
+     * @param int $idCart Cart identifier.
+     *
+     * @return bool True when the delete query succeeds.
+     */
+    public function deleteByCart(int $idCart): bool
+    {
+        return \Db::getInstance()->delete('dydaps_pack_cart', 'id_cart = ' . (int) $idCart);
+    }
+
+    /**
+     * Delete a native cart line by customization without invoking cart hooks.
+     *
+     * @param int $idCart Cart identifier.
+     * @param int $idProduct Pack product identifier.
+     * @param int $idProductAttribute Pack product attribute identifier.
+     * @param int $idCustomization Native customization identifier.
+     *
+     * @return bool True when the delete query succeeds.
+     */
+    public function deleteNativeCartLine(int $idCart, int $idProduct, int $idProductAttribute, int $idCustomization): bool
+    {
+        if ($idCart <= 0 || $idProduct <= 0 || $idCustomization <= 0) {
+            return true;
+        }
+
+        return \Db::getInstance()->delete(
+            'cart_product',
+            'id_cart = ' . (int) $idCart . '
+            AND id_product = ' . (int) $idProduct . '
+            AND id_product_attribute = ' . (int) $idProductAttribute . '
+            AND id_customization = ' . (int) $idCustomization
+        );
+    }
+
+    /**
+     * Remove every row created for a failed native cart add.
+     *
+     * @param int $idCart Cart identifier.
+     * @param int $idProduct Pack product identifier.
+     * @param int $idProductAttribute Pack product attribute identifier.
+     * @param int $idCustomization Native customization identifier.
+     *
+     * @return bool True when all cleanup queries succeed.
+     */
+    public function rollbackNativeAdd(int $idCart, int $idProduct, int $idProductAttribute, int $idCustomization): bool
+    {
+        return $this->deleteByCustomization($idCart, $idCustomization)
+            && $this->deleteNativeCartLine($idCart, $idProduct, $idProductAttribute, $idCustomization)
+            && $this->deleteNativeCustomization($idCustomization);
+    }
+
+    /**
+     * Delete a native customization row created only to split pack cart lines.
+     *
+     * @param int $idCustomization Native customization identifier.
+     *
+     * @return bool True when the delete query succeeds.
+     */
+    public function deleteNativeCustomization(int $idCustomization): bool
+    {
+        if ($idCustomization <= 0) {
+            return true;
+        }
+
+        return \Db::getInstance()->delete('customized_data', 'id_customization = ' . (int) $idCustomization)
+            && \Db::getInstance()->delete('customization', 'id_customization = ' . (int) $idCustomization);
+    }
+
+    /**
+     * Return a stored row by cart/product/hash.
+     *
+     * @param int $idCart Cart identifier.
+     * @param int $idProduct Pack product identifier.
+     * @param int $idProductAttribute Pack product attribute identifier.
+     * @param string $hash Configuration hash.
+     *
+     * @return array<string, mixed>|null Stored module cart row.
+     */
+    public function getCartConfigurationByHash(int $idCart, int $idProduct, int $idProductAttribute, string $hash): ?array
+    {
+        $row = \Db::getInstance()->getRow(
+            'SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_cart`
+            WHERE id_cart = ' . (int) $idCart . '
+            AND id_product = ' . (int) $idProduct . '
+            AND id_product_attribute = ' . (int) $idProductAttribute . '
+            AND configuration_hash = "' . pSQL($hash) . '"'
+        );
+
+        return is_array($row) ? $row : null;
     }
 }

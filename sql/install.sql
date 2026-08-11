@@ -70,8 +70,10 @@ CREATE TABLE IF NOT EXISTS `PREFIX_dydaps_pack_cart` (
   `id_cart` INT UNSIGNED NOT NULL,
   `id_product` INT UNSIGNED NOT NULL,
   `id_product_attribute` INT UNSIGNED NOT NULL DEFAULT 0,
+  `id_customization` INT UNSIGNED NOT NULL DEFAULT 0,
   `configuration_hash` CHAR(64) NOT NULL,
   `configuration_json` MEDIUMTEXT NOT NULL,
+  `quantity` INT UNSIGNED NOT NULL DEFAULT 1,
   `unit_price_tax_excl` DECIMAL(20,6) NOT NULL DEFAULT 0.000000,
   `unit_price_tax_incl` DECIMAL(20,6) NOT NULL DEFAULT 0.000000,
   `created_at` DATETIME NOT NULL,
@@ -80,6 +82,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_dydaps_pack_cart` (
   -- The configuration hash distinguishes multiple configurations of the same
   -- pack product inside a single cart.
   UNIQUE KEY `cart_product_hash` (`id_cart`, `id_product`, `id_product_attribute`, `configuration_hash`),
+  KEY `cart_customization` (`id_cart`, `id_customization`),
   KEY `cart` (`id_cart`)
 ) ENGINE=ENGINE_TYPE DEFAULT CHARSET=utf8mb4;
 
@@ -88,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_dydaps_pack_order` (
   `id_order` INT UNSIGNED NOT NULL,
   `id_order_detail` INT UNSIGNED NOT NULL DEFAULT 0,
   `id_cart` INT UNSIGNED NOT NULL,
+  `id_customization` INT UNSIGNED NOT NULL DEFAULT 0,
   `id_pack` INT UNSIGNED NOT NULL,
   `id_product` INT UNSIGNED NOT NULL,
   `id_shop` INT UNSIGNED NOT NULL,
@@ -106,6 +110,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_dydaps_pack_order` (
   PRIMARY KEY (`id_pack_order`),
   -- Order displays and refunds resolve pack snapshots by order and hash.
   KEY `order_hash` (`id_order`, `configuration_hash`),
+  KEY `order_cart_customization_hash` (`id_order`, `id_cart`, `id_customization`, `configuration_hash`),
   KEY `cart` (`id_cart`)
 ) ENGINE=ENGINE_TYPE DEFAULT CHARSET=utf8mb4;
 

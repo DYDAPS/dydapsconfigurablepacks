@@ -19,6 +19,7 @@ final class PackOrderRepository
      *     id_order: int,
      *     id_order_detail?: int,
      *     id_cart: int,
+     *     id_customization?: int,
      *     id_pack: int,
      *     id_product: int,
      *     id_shop: int,
@@ -35,13 +36,30 @@ final class PackOrderRepository
      * }&array<string, mixed> $snapshot Immutable order snapshot payload.
      *
      * @return int Created dydaps_pack_order identifier.
+     *
+     * @throws \RuntimeException When the native order detail is missing.
      */
     public function createSnapshot(array $snapshot): int
     {
+        if ((int) ($snapshot['id_order_detail'] ?? 0) <= 0) {
+            throw new \RuntimeException('Pack order snapshot requires a valid native order detail.');
+        }
+
+        $existingId = $this->findExistingSnapshotId(
+            (int) $snapshot['id_order'],
+            (int) $snapshot['id_cart'],
+            (int) ($snapshot['id_customization'] ?? 0),
+            (string) $snapshot['configuration_hash']
+        );
+        if ($existingId > 0) {
+            return $existingId;
+        }
+
         \Db::getInstance()->insert('dydaps_pack_order', [
             'id_order' => (int) $snapshot['id_order'],
             'id_order_detail' => (int) ($snapshot['id_order_detail'] ?? 0),
             'id_cart' => (int) $snapshot['id_cart'],
+            'id_customization' => (int) ($snapshot['id_customization'] ?? 0),
             'id_pack' => (int) $snapshot['id_pack'],
             'id_product' => (int) $snapshot['id_product'],
             'id_shop' => (int) $snapshot['id_shop'],
@@ -60,6 +78,27 @@ final class PackOrderRepository
         ]);
 
         return (int) \Db::getInstance()->Insert_ID();
+    }
+
+    /**
+     * Return an existing snapshot id for an already transferred cart line.
+     *
+     * @param int $idOrder Order identifier.
+     * @param int $idCart Cart identifier.
+     * @param int $idCustomization Native customization identifier.
+     * @param string $configurationHash Stable configuration hash.
+     *
+     * @return int Existing snapshot identifier or zero.
+     */
+    public function findExistingSnapshotId(int $idOrder, int $idCart, int $idCustomization, string $configurationHash): int
+    {
+        return (int) \Db::getInstance()->getValue(
+            'SELECT id_pack_order FROM `' . _DB_PREFIX_ . 'dydaps_pack_order`
+            WHERE id_order = ' . (int) $idOrder . '
+            AND id_cart = ' . (int) $idCart . '
+            AND id_customization = ' . (int) $idCustomization . '
+            AND configuration_hash = "' . pSQL($configurationHash) . '"'
+        );
     }
 
     /**
@@ -107,6 +146,20 @@ final class PackOrderRepository
     }
 
     /**
+     * Return one configured pack order snapshot.
+     *
+     * @param int $idPackOrder Configured pack order snapshot identifier.
+     *
+     * @return array<string, mixed>|null Snapshot row.
+     */
+    public function getOrderSnapshot(int $idPackOrder): ?array
+    {
+        $row = \Db::getInstance()->getRow('SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_order` WHERE id_pack_order = ' . (int) $idPackOrder);
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
      * Return component snapshot rows for a configured pack order.
      *
      * @param int $idPackOrder Configured pack order snapshot identifier.
@@ -116,5 +169,19 @@ final class PackOrderRepository
     public function getComponents(int $idPackOrder): array
     {
         return \Db::getInstance()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_order_component` WHERE id_pack_order = ' . (int) $idPackOrder) ?: [];
+    }
+
+    /**
+     * Return whether a snapshot already has component rows.
+     *
+     * @param int $idPackOrder Configured pack order snapshot identifier.
+     *
+     * @return bool True when at least one component row exists.
+     */
+    public function hasComponents(int $idPackOrder): bool
+    {
+        return (int) \Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'dydaps_pack_order_component` WHERE id_pack_order = ' . (int) $idPackOrder
+        ) > 0;
     }
 }

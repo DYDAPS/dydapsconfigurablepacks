@@ -2,12 +2,15 @@
 <xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
   <file source-language="en-US" target-language="fr-FR" datatype="plaintext" original="shop">
     <body>
-      <trans-unit id="shop.1"><source>Configure your pack</source><target>Configurez votre pack</target></trans-unit>
-      <trans-unit id="shop.2"><source>Add configured pack to cart</source><target>Ajouter le pack configuré au panier</target></trans-unit>
-      <trans-unit id="shop.3"><source>Configurable packs</source><target>Packs configurables</target></trans-unit>
-      <trans-unit id="shop.4"><source>Unknown action.</source><target>Action inconnue.</target></trans-unit>
-      <trans-unit id="shop.5"><source>Pack not found.</source><target>Pack introuvable.</target></trans-unit>
-      <trans-unit id="shop.6"><source>Invalid pack configuration.</source><target>Configuration de pack invalide.</target></trans-unit>
+      <trans-unit id="configure_pack_title"><source>Configure your pack</source><target>Configurez votre pack</target></trans-unit>
+      <trans-unit id="add_configured_pack_to_cart"><source>Add configured pack to cart</source><target>Ajouter le pack configuré au panier</target></trans-unit>
+      <trans-unit id="configured_packs_order_title"><source>Configurable packs</source><target>Packs configurables</target></trans-unit>
+      <trans-unit id="ajax_unknown_action"><source>Unknown action.</source><target>Action inconnue.</target></trans-unit>
+      <trans-unit id="pack_not_found"><source>Pack not found.</source><target>Pack introuvable.</target></trans-unit>
+      <trans-unit id="invalid_pack_configuration"><source>Invalid pack configuration.</source><target>Configuration de pack invalide.</target></trans-unit>
+      <trans-unit id="component_available"><source>Available</source><target>Disponible</target></trans-unit>
+      <trans-unit id="component_unavailable"><source>Unavailable</source><target>Indisponible</target></trans-unit>
+      <trans-unit id="estimated_components_total"><source>Estimated components total:</source><target>Total estimé des composants :</target></trans-unit>
     </body>
   </file>
 </xliff>

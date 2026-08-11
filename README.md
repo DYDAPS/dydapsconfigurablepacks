@@ -14,7 +14,8 @@ It follows the DYDAPS module architecture: Symfony back-office controllers, Twig
 - Fixed price, component sum, percentage discount, fixed discount and forced price strategies
 - Server-side configuration hash generation
 - Server-side price and stock validation
-- Distinct cart configuration persistence
+- Distinct native cart lines through PrestaShop customization identifiers
+- Cart synchronization after native quantity, removal and clear operations
 - Immutable order snapshots with component rows
 - Idempotent stock decrement and restoration operations
 - Full pack refund calculation from stored order allocation
@@ -29,9 +30,11 @@ The current release provides the production data model and pack grid. Product-pa
 
 ## Technical Notes
 
-The module uses native PrestaShop products as the visible sellable pack product. Component stock is managed by module stock operations stored in `ps_dydaps_pack_stock_operation`.
+The module uses native PrestaShop products as the visible sellable pack product. Each configured line is backed by a native customization row so PrestaShop can keep multiple configurations of the same product separate in cart and order details.
 
-Native PrestaShop does not provide a stable cross-version hook to split same-product cart rows by arbitrary custom configuration without overrides. This release persists distinct configurations in `ps_dydaps_pack_cart` and uses deterministic hashes, but full native cart row separation may require a PrestaShop-version-specific cart customization strategy or a documented override in older shops.
+When `stock_behavior = components`, component stock is the business source of truth. PrestaShop still performs its native container product movement during order validation, so the module records an idempotent compensating movement for the container and manages component movements in `ps_dydaps_pack_stock_operation`. The container product is also configured to allow orders so checkout is not blocked by its own stock level.
+
+When `stock_behavior = validate_only`, component stock is checked before cart insertion but the module does not decrement or restore component stock.
 
 ## Development workflow
 

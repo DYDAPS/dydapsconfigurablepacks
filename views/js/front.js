@@ -26,6 +26,10 @@
       var idProduct = root.getAttribute('data-id-product');
       var body = root.querySelector('[data-pack-components]');
       var message = root.querySelector('[data-pack-message]');
+      var summary = root.querySelector('[data-pack-summary]');
+      var labelAvailable = root.getAttribute('data-label-available') || 'Available';
+      var labelUnavailable = root.getAttribute('data-label-unavailable') || 'Unavailable';
+      var labelEstimatedTotal = root.getAttribute('data-label-estimated-total') || 'Estimated components total:';
 
       // Load selectable components asynchronously so the product page can be
       // cached independently from the current pack definition.
@@ -47,13 +51,46 @@
           component.products.forEach(function (product) {
             var option = document.createElement('option');
             option.value = product.id_product + ':' + product.id_product_attribute;
-            option.textContent = '#' + product.id_product + (parseInt(product.id_product_attribute, 10) > 0 ? ' / ' + product.id_product_attribute : '');
+            option.selected = parseInt(product.is_default || 0, 10) === 1;
+            option.textContent = product.name
+              + (product.attributes_text ? ' - ' + product.attributes_text : '')
+              + (product.reference ? ' (' + product.reference + ')' : '')
+              + ' - ' + (product.available ? labelAvailable : labelUnavailable)
+              + ' - ' + Number(product.impact_tax_incl || 0).toFixed(2);
+            option.setAttribute('data-available', product.available ? '1' : '0');
+            option.setAttribute('data-impact', product.impact_tax_incl || 0);
             select.appendChild(option);
           });
           wrapper.appendChild(select);
+          if (parseInt(component.max_quantity || component.quantity || 1, 10) > parseInt(component.min_quantity || component.quantity || 1, 10)) {
+            var qty = document.createElement('input');
+            qty.type = 'number';
+            qty.min = component.min_quantity || 1;
+            qty.max = component.max_quantity || component.quantity || 1;
+            qty.value = component.quantity || component.min_quantity || 1;
+            qty.setAttribute('data-pack-component-quantity', component.id_component);
+            wrapper.appendChild(qty);
+          }
           body.appendChild(wrapper);
         });
+        updateSummary();
       });
+
+      function updateSummary() {
+        var total = 0;
+        root.querySelectorAll('[data-pack-selection]').forEach(function (select) {
+          var option = select.options[select.selectedIndex];
+          var idComponent = select.getAttribute('data-pack-selection');
+          var qtyInput = root.querySelector('[data-pack-component-quantity="' + idComponent + '"]');
+          var qty = qtyInput ? parseInt(qtyInput.value || '1', 10) : 1;
+          total += Number(option ? option.getAttribute('data-impact') : 0) * qty;
+        });
+        if (summary) {
+          summary.textContent = total > 0 ? (labelEstimatedTotal + ' ' + total.toFixed(2)) : '';
+        }
+      }
+
+      body.addEventListener('change', updateSummary);
 
       var add = root.querySelector('[data-pack-add]');
       add.addEventListener('click', function () {
@@ -67,7 +104,9 @@
             id_component: parseInt(select.getAttribute('data-pack-selection'), 10),
             id_product: parseInt(parts[0], 10),
             id_product_attribute: parseInt(parts[1] || '0', 10),
-            quantity: 1
+            quantity: root.querySelector('[data-pack-component-quantity="' + select.getAttribute('data-pack-selection') + '"]')
+              ? parseInt(root.querySelector('[data-pack-component-quantity="' + select.getAttribute('data-pack-selection') + '"]').value || '1', 10)
+              : 1
           });
         });
         request(url, {action: 'add', id_product: idProduct, quantity: 1, configuration: JSON.stringify({components: components})}).then(function (payload) {

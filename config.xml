@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  2007-2026 PrestaShop SA and Contributors
+
+  NOTICE OF LICENSE
+
+  This source file is subject to the Open Software License (OSL 3.0)
+  that is bundled with this package in the file LICENSE.txt.
+  It is also available through the world-wide-web at this URL:
+  https://opensource.org/licenses/OSL-3.0
+
+  @author    DYDAPS
+  @copyright 2007-2026 PrestaShop SA and Contributors
+  @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+-->
 <module>
     <name>dydapsconfigurablepacks</name>
     <displayName><![CDATA[DYDAPS - Configurable Packs]]></displayName>
-    <version><![CDATA[1.0.0]]></version>
+    <version><![CDATA[1.0.1]]></version>
     <description><![CDATA[Create and sell configurable product packs.]]></description>
     <author><![CDATA[DYDAPS]]></author>
     <tab><![CDATA[catalog]]></tab>

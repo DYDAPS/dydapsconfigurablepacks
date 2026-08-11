@@ -54,7 +54,7 @@ final class PackPriceCalculator
             return new PackPrice(0.0, 0.0, $configuration->getQuantity(), []);
         }
 
-        $components = $this->buildComponentPriceRows($configuration, $idShop, $idLang, $idCurrency, $idCustomer);
+        $components = $this->buildComponentPriceRows($configuration, (int) $pack['id_pack'], $idShop, $idLang, $idCurrency, $idCustomer);
         $sumTaxExcl = array_sum(array_map(static fn (array $row): float => (float) $row['total_tax_excl'], $components));
         $sumTaxIncl = array_sum(array_map(static fn (array $row): float => (float) $row['total_tax_incl'], $components));
 
@@ -121,16 +121,25 @@ final class PackPriceCalculator
      *     product_reference: string
      * }>
      */
-    private function buildComponentPriceRows(PackConfiguration $configuration, int $idShop, int $idLang, int $idCurrency, int $idCustomer): array
+    private function buildComponentPriceRows(PackConfiguration $configuration, int $idPack, int $idShop, int $idLang, int $idCurrency, int $idCustomer): array
     {
         $rows = [];
+        $definitions = [];
+        foreach ($this->repository->getComponents($idPack, $idLang) as $definition) {
+            $definitions[(int) $definition['id_component']] = $definition;
+        }
         foreach ($configuration->getComponents() as $component) {
             $idProduct = (int) $component['id_product'];
             $idAttribute = (int) ($component['id_product_attribute'] ?? 0);
             $qty = max(1, (int) ($component['quantity'] ?? 1));
+            $definition = $definitions[(int) $component['id_component']] ?? [];
             $specificPriceOutput = null;
-            $unitExcl = (float) \Product::getPriceStatic($idProduct, false, $idAttribute, 6, null, false, true, 1, false, $idCustomer, null, null, $specificPriceOutput, true, true, null, true);
-            $unitIncl = (float) \Product::getPriceStatic($idProduct, true, $idAttribute, 6, null, false, true, 1, false, $idCustomer, null, null, $specificPriceOutput, true, true, null, true);
+            $priceContext = $this->buildPriceContext($idShop, $idCurrency);
+            $unitExcl = (float) \Product::getPriceStatic($idProduct, false, $idAttribute, 6, null, false, true, $qty, false, $idCustomer, null, null, $specificPriceOutput, true, true, $priceContext, true);
+            $unitIncl = (float) \Product::getPriceStatic($idProduct, true, $idAttribute, 6, null, false, true, $qty, false, $idCustomer, null, null, $specificPriceOutput, true, true, $priceContext, true);
+            $taxRatio = $unitExcl > 0 ? $unitIncl / $unitExcl : 1.0;
+            $unitExcl = $this->applyComponentPricing($unitExcl, $definition);
+            $unitIncl = $this->applyComponentPricing($unitIncl, $definition, $taxRatio);
             $product = new \Product($idProduct, false, $idLang, $idShop);
             $taxRate = $unitExcl > 0 ? (($unitIncl / $unitExcl) - 1) * 100 : 0.0;
 
@@ -144,12 +153,59 @@ final class PackPriceCalculator
                 'total_tax_excl' => $unitExcl * $qty,
                 'total_tax_incl' => $unitIncl * $qty,
                 'tax_rate' => $taxRate,
+                'component_name' => (string) ($definition['name'] ?? ''),
                 'product_name' => (string) $product->name,
                 'product_reference' => (string) $product->reference,
+                'combination_reference' => $idAttribute > 0 ? (string) \Combination::getReference($idAttribute) : '',
+                'attributes_text' => $idAttribute > 0 ? strip_tags(\Product::getProductName($idProduct, $idAttribute, $idLang)) : '',
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * Build a temporary PrestaShop context matching the requested shop/currency.
+     *
+     * @param int $idShop Shop identifier.
+     * @param int $idCurrency Currency identifier.
+     *
+     * @return \Context Price context.
+     */
+    private function buildPriceContext(int $idShop, int $idCurrency): \Context
+    {
+        $context = \Context::getContext()->cloneContext();
+        if ($idShop > 0) {
+            $context->shop = new \Shop($idShop);
+        }
+        if ($idCurrency > 0) {
+            $context->currency = new \Currency($idCurrency);
+        }
+
+        return $context;
+    }
+
+    /**
+     * Apply component-level pricing behavior to a unit amount.
+     *
+     * @param float $unitAmount Unit price in the current tax mode.
+     * @param array<string, mixed> $definition Component definition.
+     *
+     * @return float Adjusted unit amount.
+     */
+    private function applyComponentPricing(float $unitAmount, array $definition, float $taxRatio = 1.0): float
+    {
+        switch ((string) ($definition['pricing_behavior'] ?? 'native')) {
+            case 'fixed':
+                return (float) ($definition['fixed_price_tax_excl'] ?? $unitAmount) * $taxRatio;
+            case 'discount_percent':
+                return $unitAmount * (1 - ((float) ($definition['discount_percent'] ?? 0) / 100));
+            case 'surcharge':
+                return $unitAmount + ((float) ($definition['surcharge_tax_excl'] ?? 0) * $taxRatio);
+            case 'native':
+            default:
+                return $unitAmount;
+        }
     }
 
     /**

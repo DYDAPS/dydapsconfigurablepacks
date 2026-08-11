@@ -1,6 +1,6 @@
 {
     "name": "dydaps/configurable-packs",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Configurable product packs for PrestaShop",
     "type": "prestashop-module",
     "license": "OSL-3.0",

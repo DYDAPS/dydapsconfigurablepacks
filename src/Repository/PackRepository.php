@@ -104,6 +104,141 @@ final class PackRepository
     }
 
     /**
+     * Persist the full component composition submitted from the admin form.
+     *
+     * Existing editable rows are replaced atomically for the pack. The payload
+     * shape intentionally mirrors the component tables so every supported
+     * pricing, stock and quantity field is administrable.
+     *
+     * @param int $idPack Pack identifier.
+     * @param list<array<string, mixed>> $components Component definitions.
+     * @param int $idLang Language used for component labels.
+     *
+     * @return void
+     */
+    public function replaceComponents(int $idPack, array $components, int $idLang): void
+    {
+        \Db::getInstance()->execute('DELETE cp FROM `' . _DB_PREFIX_ . 'dydaps_pack_component_product` cp INNER JOIN `' . _DB_PREFIX_ . 'dydaps_pack_component` c ON c.id_component = cp.id_component WHERE c.id_pack = ' . (int) $idPack);
+        \Db::getInstance()->execute('DELETE cl FROM `' . _DB_PREFIX_ . 'dydaps_pack_component_lang` cl INNER JOIN `' . _DB_PREFIX_ . 'dydaps_pack_component` c ON c.id_component = cl.id_component WHERE c.id_pack = ' . (int) $idPack);
+        \Db::getInstance()->delete('dydaps_pack_component', 'id_pack = ' . (int) $idPack);
+
+        foreach (array_values($components) as $position => $component) {
+            if (!\Db::getInstance()->insert('dydaps_pack_component', [
+                'id_pack' => $idPack,
+                'position' => (int) ($component['position'] ?? $position),
+                'component_type' => pSQL((string) ($component['component_type'] ?? 'choice')),
+                'optional' => (int) !empty($component['optional']),
+                'quantity' => max(1, (int) ($component['quantity'] ?? 1)),
+                'min_quantity' => max(0, (int) ($component['min_quantity'] ?? 1)),
+                'max_quantity' => max(1, (int) ($component['max_quantity'] ?? ($component['quantity'] ?? 1))),
+                'pricing_behavior' => pSQL((string) ($component['pricing_behavior'] ?? 'native')),
+                'fixed_price_tax_excl' => (float) ($component['fixed_price_tax_excl'] ?? 0),
+                'discount_percent' => (float) ($component['discount_percent'] ?? 0),
+                'surcharge_tax_excl' => (float) ($component['surcharge_tax_excl'] ?? 0),
+                'active' => (int) ($component['active'] ?? 1),
+            ])) {
+                throw new \RuntimeException('Unable to save pack component.');
+            }
+            $idComponent = (int) \Db::getInstance()->Insert_ID();
+            if (!\Db::getInstance()->insert('dydaps_pack_component_lang', [
+                'id_component' => $idComponent,
+                'id_lang' => $idLang,
+                'name' => pSQL((string) ($component['name'] ?? ('Component #' . ($position + 1)))),
+                'description' => pSQL((string) ($component['description'] ?? '')),
+            ])) {
+                throw new \RuntimeException('Unable to save pack component label.');
+            }
+
+            foreach (array_values((array) ($component['products'] ?? [])) as $productPosition => $product) {
+                if (!is_array($product) || (int) ($product['id_product'] ?? 0) <= 0) {
+                    continue;
+                }
+                if (!\Db::getInstance()->insert('dydaps_pack_component_product', [
+                    'id_component' => $idComponent,
+                    'id_product' => (int) $product['id_product'],
+                    'id_product_attribute' => (int) ($product['id_product_attribute'] ?? 0),
+                    'is_default' => (int) !empty($product['is_default']),
+                    'position' => (int) ($product['position'] ?? $productPosition),
+                    'active' => (int) ($product['active'] ?? 1),
+                ])) {
+                    throw new \RuntimeException('Unable to save pack component product.');
+                }
+            }
+        }
+    }
+
+    /**
+     * Return the full component payload used by the admin JSON editor.
+     *
+     * @param int $idPack Pack identifier.
+     * @param int $idLang Language identifier.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getComponentsForAdmin(int $idPack, int $idLang): array
+    {
+        $components = $this->getComponents($idPack, $idLang);
+        foreach ($components as &$component) {
+            $component['products'] = $this->getAllowedSelections((int) $component['id_component']);
+        }
+        unset($component);
+
+        return $components;
+    }
+
+    /**
+     * Return front-office-ready components with product labels and availability.
+     *
+     * @param int $idPack Pack identifier.
+     * @param int $idLang Language identifier.
+     * @param int $idShop Shop identifier.
+     * @param int $idCurrency Currency identifier.
+     * @param int $idCustomer Customer identifier.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function describeComponents(int $idPack, int $idLang, int $idShop, int $idCurrency, int $idCustomer): array
+    {
+        $components = $this->getComponents($idPack, $idLang);
+        foreach ($components as &$component) {
+            $products = [];
+            foreach ($this->getAllowedSelections((int) $component['id_component']) as $selection) {
+                $idProduct = (int) $selection['id_product'];
+                $idAttribute = (int) $selection['id_product_attribute'];
+                $product = new \Product($idProduct, false, $idLang, $idShop);
+                if (!\Validate::isLoadedObject($product) || !(bool) $product->active) {
+                    continue;
+                }
+                $image = \Product::getCover($idProduct);
+                $link = \Context::getContext()->link;
+                $specificPrice = null;
+                $priceTaxExcl = (float) \Product::getPriceStatic($idProduct, false, $idAttribute, 6, null, false, true, 1, false, $idCustomer, null, null, $specificPrice, true, true, null, true);
+                $priceTaxIncl = (float) \Product::getPriceStatic($idProduct, true, $idAttribute, 6, null, false, true, 1, false, $idCustomer, null, null, $specificPrice, true, true, null, true);
+                $products[] = [
+                    'id_product' => $idProduct,
+                    'id_product_attribute' => $idAttribute,
+                    'name' => (string) $product->name,
+                    'reference' => $idAttribute > 0 ? (string) \Combination::getReference($idAttribute) : (string) $product->reference,
+                    'attributes' => $idAttribute > 0 ? \Product::getAttributesParams($idProduct, $idAttribute) : [],
+                    'attributes_text' => $idAttribute > 0 ? strip_tags(\Product::getProductName($idProduct, $idAttribute, $idLang)) : '',
+                    'image' => $image ? $link->getImageLink($product->link_rewrite, (string) $image['id_image'], 'home_default') : '',
+                    'available_quantity' => (int) \StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop),
+                    'available' => (int) \StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop) > 0,
+                    'price_tax_excl' => $priceTaxExcl,
+                    'price_tax_incl' => $priceTaxIncl,
+                    'impact_tax_excl' => $priceTaxExcl,
+                    'impact_tax_incl' => $priceTaxIncl,
+                    'is_default' => (int) $selection['is_default'],
+                ];
+            }
+            $component['products'] = $products;
+        }
+        unset($component);
+
+        return $components;
+    }
+
+    /**
      * Insert or update a pack definition.
      *
      * @param array{
@@ -141,14 +276,41 @@ final class PackRepository
 
         if ($idPack > 0) {
             \Db::getInstance()->update('dydaps_pack', $payload, 'id_pack = ' . $idPack);
+            $this->applyContainerStockPolicy((int) $data['id_product'], (int) $data['id_shop'], (string) $payload['stock_behavior']);
 
             return $idPack;
         }
 
         $payload['created_at'] = date('Y-m-d H:i:s');
         \Db::getInstance()->insert('dydaps_pack', $payload);
+        $idPack = (int) \Db::getInstance()->Insert_ID();
+        $this->applyContainerStockPolicy((int) $data['id_product'], (int) $data['id_shop'], (string) $payload['stock_behavior']);
 
-        return (int) \Db::getInstance()->Insert_ID();
+        return $idPack;
+    }
+
+    /**
+     * Apply the native stock policy required by the module container product.
+     *
+     * In component stock mode, PrestaShop must not reject checkout because the
+     * container has no own stock; component validation remains the business
+     * stock gate.
+     *
+     * @param int $idProduct Native pack container product identifier.
+     * @param int $idShop Shop identifier.
+     * @param string $stockBehavior Pack stock behavior.
+     *
+     * @return void
+     */
+    private function applyContainerStockPolicy(int $idProduct, int $idShop, string $stockBehavior): void
+    {
+        if ($idProduct <= 0 || $idShop <= 0 || $stockBehavior !== 'components') {
+            return;
+        }
+
+        if (class_exists('StockAvailable') && method_exists('StockAvailable', 'setProductOutOfStock')) {
+            \StockAvailable::setProductOutOfStock($idProduct, 1, $idShop);
+        }
     }
 
     /**
