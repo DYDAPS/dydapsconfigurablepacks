@@ -340,7 +340,9 @@ final class DydapsConfigurablePacks extends Module
      */
     public function hookDisplayAdminOrderMain(array $params): string
     {
-        return $this->renderOrderSnapshot((int) ($params['id_order'] ?? Tools::getValue('id_order')));
+        $idOrder = (int) ($params['id_order'] ?? Tools::getValue('id_order'));
+
+        return $this->renderOrderSnapshot($idOrder, true);
     }
 
     /**
@@ -352,7 +354,7 @@ final class DydapsConfigurablePacks extends Module
      */
     public function hookDisplayAdminOrderSide(array $params): string
     {
-        return $this->renderOrderSnapshot((int) ($params['id_order'] ?? Tools::getValue('id_order')));
+        return $this->renderOrderSnapshot((int) ($params['id_order'] ?? Tools::getValue('id_order')), false);
     }
 
     /**
@@ -366,7 +368,7 @@ final class DydapsConfigurablePacks extends Module
     {
         $order = $params['order'] ?? null;
 
-        return $this->renderOrderSnapshot($order instanceof Order ? (int) $order->id : (int) ($params['id_order'] ?? 0));
+        return $this->renderOrderSnapshot($order instanceof Order ? (int) $order->id : (int) ($params['id_order'] ?? 0), false);
     }
 
     /**
@@ -413,7 +415,9 @@ final class DydapsConfigurablePacks extends Module
 
             $action = (string) ($params['action'] ?? 'refund');
             $amount = (float) ($params['cancel_amount'] ?? 0);
-            $restoreStock = $action !== 'partial_refund';
+            $suppressGenericComponentRestore = isset($GLOBALS['DYDAPS_CONFIGURABLE_PACKS_COMPONENT_REFUND_ORDER_DETAIL'])
+                && (int) $GLOBALS['DYDAPS_CONFIGURABLE_PACKS_COMPONENT_REFUND_ORDER_DETAIL'] === $idOrderDetail;
+            $restoreStock = !$suppressGenericComponentRestore;
             $this->getRefundService()->recordNativeOrderDetailRefund($idOrderDetail, $quantity, $amount, $restoreStock, $action);
         } catch (Throwable $e) {
             $this->logError('Native refund synchronization failed: ' . $e->getMessage());
@@ -550,11 +554,12 @@ final class DydapsConfigurablePacks extends Module
      *
      * @return string Rendered snapshot HTML, or an empty string when no snapshot exists.
      */
-    private function renderOrderSnapshot(int $idOrder): string
+    private function renderOrderSnapshot(int $idOrder, bool $canRefund = false): string
     {
         if ($idOrder <= 0) {
             return '';
         }
+        $messages = $canRefund ? $this->handleComponentRefundPost($idOrder) : [];
         $repository = new PackOrderRepository();
         $snapshots = $repository->getOrderSnapshots($idOrder);
         if (!$snapshots) {
@@ -562,13 +567,76 @@ final class DydapsConfigurablePacks extends Module
         }
         foreach ($snapshots as &$snapshot) {
             $idPackOrder = (int) ($snapshot['id_pack_order'] ?? 0);
-            $snapshot['components'] = $repository->getComponents($idPackOrder);
+            $snapshot['components'] = $repository->getComponentsWithRefundState($idPackOrder);
             $snapshot['refunds'] = $repository->getRefunds($idPackOrder);
         }
         unset($snapshot);
-        $this->context->smarty->assign(['dydaps_pack_order_snapshots' => $snapshots]);
+        $this->context->smarty->assign([
+            'dydaps_pack_order_snapshots' => $snapshots,
+            'dydaps_pack_order_can_refund' => $canRefund,
+            'dydaps_pack_order_refund_token' => $this->getComponentRefundToken(),
+            'dydaps_pack_order_refund_messages' => $messages,
+        ]);
 
         return (string) $this->fetch('module:' . $this->name . '/views/templates/hook/order_pack_details.tpl');
+    }
+
+    /**
+     * Handle a back-office component refund request from the order page.
+     *
+     * @param int $idOrder Order identifier.
+     *
+     * @return list<array{type: string, text: string}> Messages to display above the snapshot list.
+     */
+    private function handleComponentRefundPost(int $idOrder): array
+    {
+        if (!Tools::isSubmit('dydaps_pack_refund_component')) {
+            return [];
+        }
+
+        $token = (string) Tools::getValue('dydaps_pack_refund_token');
+        if (!hash_equals($this->getComponentRefundToken(), $token)) {
+            return [[
+                'type' => 'danger',
+                'text' => $this->trans('The refund security token is invalid. Please reload the order page.', [], 'Modules.Dydapsconfigurablepacks.Admin'),
+            ]];
+        }
+
+        $idPackOrderComponent = (int) Tools::getValue('id_pack_order_component');
+        $quantity = (int) Tools::getValue('component_refund_quantity');
+        $restoreStock = (bool) Tools::getValue('component_refund_restock');
+        $generateCreditSlip = (bool) Tools::getValue('component_refund_credit_slip');
+
+        try {
+            $amounts = $this->getRefundService()->refundComponent($idOrder, $idPackOrderComponent, $quantity, $restoreStock, $generateCreditSlip);
+
+            return [[
+                'type' => 'success',
+                'text' => sprintf(
+                    $this->trans('Component refund recorded: %s tax incl. A native credit slip was generated on the pack line.', [], 'Modules.Dydapsconfigurablepacks.Admin'),
+                    number_format((float) $amounts['tax_incl'], 2, '.', ' ')
+                ),
+            ]];
+        } catch (Throwable $e) {
+            $this->logError('Component refund failed: ' . $e->getMessage());
+
+            return [[
+                'type' => 'danger',
+                'text' => $e->getMessage(),
+            ]];
+        }
+    }
+
+    /**
+     * Return the CSRF token used by the component refund form.
+     *
+     * @return string Stable token for the current employee.
+     */
+    private function getComponentRefundToken(): string
+    {
+        $idEmployee = isset($this->context->employee) ? (int) $this->context->employee->id : 0;
+
+        return Tools::hash($this->name . ':component_refund:' . $idEmployee);
     }
 
     /**

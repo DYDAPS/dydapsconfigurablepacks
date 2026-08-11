@@ -14,6 +14,7 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 use Dydaps\ConfigurablePacks\Config\PackConfig;
 use Dydaps\ConfigurablePacks\Model\PackConfiguration;
 use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
+use Dydaps\ConfigurablePacks\Repository\PackOrderRepository;
 use Dydaps\ConfigurablePacks\Repository\PackRepository;
 use Dydaps\ConfigurablePacks\Repository\PackStockRepository;
 use Dydaps\ConfigurablePacks\Service\PackAvailabilityService;
@@ -22,7 +23,9 @@ use Dydaps\ConfigurablePacks\Service\PackCartSynchronizer;
 use Dydaps\ConfigurablePacks\Service\PackConfigurationHashGenerator;
 use Dydaps\ConfigurablePacks\Service\PackDiscountAllocator;
 use Dydaps\ConfigurablePacks\Service\PackPriceCalculator;
+use Dydaps\ConfigurablePacks\Service\PackRefundService;
 use Dydaps\ConfigurablePacks\Service\PackStockCalculator;
+use Dydaps\ConfigurablePacks\Service\PackStockMovementService;
 use Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator;
 use PrestaShop\PrestaShop\Core\Domain\Order\Command\IssuePartialRefundCommand;
 use PrestaShop\PrestaShop\Core\Domain\Order\VoucherRefundType;
@@ -87,6 +90,7 @@ final class PackPrestaShopFlowIntegrationTest
         $this->assertDeletionAndCartClearCleanupRows($componentsPack);
         $this->assertOrderSnapshotAndComponentStockMovements($componentsPack);
         $this->assertNativeRefundCreditSlipAndDocumentHooks($componentsPack);
+        $this->assertComponentRefundUiWorkflowServiceGuards($componentsPack);
         $this->assertSnapshotsRemainHistoricalAfterCatalogChanges($componentsPack);
 
         $validateOnlyPack = $this->createPackFixture('validate_only');
@@ -468,6 +472,63 @@ final class PackPrestaShopFlowIntegrationTest
      *
      * @return void
      */
+    private function assertComponentRefundUiWorkflowServiceGuards(array $fixture): void
+    {
+        if (!$this->kernel || !Context::getContext()->container || !Context::getContext()->container->has('prestashop.core.command_bus')) {
+            throw new RuntimeException('Admin command bus is required for component refund integration tests.');
+        }
+
+        $beforeM = $this->stock($fixture['id_product_m']);
+        $cart = $this->createCart();
+        $this->addConfiguredPack($cart, $fixture, $fixture['id_product_m']);
+        $this->addConfiguredPack($cart, $fixture, $fixture['id_product_m']);
+        $order = $this->validateCart($cart);
+        $snapshot = $this->getSnapshots((int) $order->id)[0] ?? null;
+        if (!$snapshot || (int) $snapshot['quantity'] !== 2) {
+            throw new RuntimeException('Component refund fixture order must contain a pack quantity of two.');
+        }
+
+        $components = $this->getSnapshotComponents((int) $snapshot['id_pack_order']);
+        $component = $components[0] ?? null;
+        if (!$component || (int) $component['quantity_total'] !== 2) {
+            throw new RuntimeException('Component refund fixture must contain a component quantity of two.');
+        }
+
+        $repository = new PackOrderRepository();
+        $refundService = new PackRefundService(
+            $repository,
+            new PackStockMovementService($repository, $this->packRepository, new PackStockRepository())
+        );
+
+        $firstRefund = $refundService->refundComponent((int) $order->id, (int) $component['id_pack_order_component'], 1, true, true);
+        $this->assertSame(1, (int) $firstRefund['native_pack_quantity'], 'A single component unit must consume one native pack quantity.');
+        $this->assertSame($beforeM - 1, $this->stock($fixture['id_product_m']), 'First component refund with restock must restore one ordered component unit.');
+        $this->assertSame(1, $repository->getComponentRefundedQuantity((int) $component['id_pack_order_component']), 'First component refund must be recorded once.');
+
+        $secondRefund = $refundService->refundComponent((int) $order->id, (int) $component['id_pack_order_component'], 1, false, true);
+        $this->assertSame(1, (int) $secondRefund['native_pack_quantity'], 'Second component refund must consume the second native pack quantity.');
+        $this->assertSame($beforeM - 1, $this->stock($fixture['id_product_m']), 'Second component refund without restock must not change component stock.');
+        $this->assertSame(2, $repository->getComponentRefundedQuantity((int) $component['id_pack_order_component']), 'Two component refunds must be recorded.');
+
+        try {
+            $refundService->refundComponent((int) $order->id, (int) $component['id_pack_order_component'], 1, false, true);
+            throw new RuntimeException('Third component refund unexpectedly succeeded.');
+        } catch (RuntimeException $e) {
+            $this->assertTrue(
+                strpos($e->getMessage(), 'remaining refundable quantity') !== false || strpos($e->getMessage(), 'native pack line') !== false,
+                'Third component refund must be refused by module guards.'
+            );
+        }
+
+        $this->assertSame(2, $this->countComponentRefunds((int) $component['id_pack_order_component']), 'Only two component refund ledger rows may exist.');
+        $this->assertTrue($this->countOrderSlips((int) $order->id) >= 2, 'Successive component refunds must create native credit slips.');
+    }
+
+    /**
+     * @param array<string, int> $fixture
+     *
+     * @return void
+     */
     private function assertSnapshotsRemainHistoricalAfterCatalogChanges(array $fixture): void
     {
         $cart = $this->createCart();
@@ -558,7 +619,11 @@ final class PackPrestaShopFlowIntegrationTest
             $this->context->customer->secure_key
         );
 
-        $idOrder = (int) Order::getIdByCartId((int) $cart->id);
+        $idOrder = (int) Db::getInstance()->getValue(
+            'SELECT id_order FROM `' . _DB_PREFIX_ . 'orders`
+            WHERE id_cart = ' . (int) $cart->id . '
+            ORDER BY id_order DESC'
+        );
         if ($idOrder <= 0) {
             throw new RuntimeException('validateOrder did not create an order.');
         }
@@ -617,6 +682,19 @@ final class PackPrestaShopFlowIntegrationTest
     private function countModuleRefunds(int $idPackOrder): int
     {
         return (int) Db::getInstance()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'dydaps_pack_refund` WHERE id_pack_order = ' . (int) $idPackOrder);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function getSnapshotComponents(int $idPackOrder): array
+    {
+        return Db::getInstance()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_order_component` WHERE id_pack_order = ' . (int) $idPackOrder) ?: [];
+    }
+
+    private function countComponentRefunds(int $idPackOrderComponent): int
+    {
+        return (int) Db::getInstance()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'dydaps_pack_refund` WHERE id_pack_order_component = ' . (int) $idPackOrderComponent);
     }
 
     private function countOrderSlips(int $idOrder): int

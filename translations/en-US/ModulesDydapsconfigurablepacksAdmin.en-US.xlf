@@ -87,6 +87,17 @@
       <trans-unit id="component_quantity_error"><source>Component quantities must stay within their minimum and maximum values.</source><target>Component quantities must stay within their minimum and maximum values.</target></trans-unit>
       <trans-unit id="component_products_error"><source>Each pack component needs at least one selectable product.</source><target>Each pack component needs at least one selectable product.</target></trans-unit>
       <trans-unit id="component_default_error"><source>Each pack component needs exactly one default product.</source><target>Each pack component needs exactly one default product.</target></trans-unit>
+      <trans-unit id="refund_token_invalid"><source>The refund security token is invalid. Please reload the order page.</source><target>The refund security token is invalid. Please reload the order page.</target></trans-unit>
+      <trans-unit id="component_refund_recorded"><source>Component refund recorded: %s tax incl. A native credit slip was generated on the pack line.</source><target>Component refund recorded: %s tax incl. A native credit slip was generated on the pack line.</target></trans-unit>
+      <trans-unit id="ordered"><source>Ordered:</source><target>Ordered:</target></trans-unit>
+      <trans-unit id="already_refunded"><source>Already refunded:</source><target>Already refunded:</target></trans-unit>
+      <trans-unit id="refundable"><source>Refundable:</source><target>Refundable:</target></trans-unit>
+      <trans-unit id="allocated_discount_tax_excl"><source>Allocated discount tax excl.:</source><target>Allocated discount tax excl.:</target></trans-unit>
+      <trans-unit id="allocated_discount_tax_incl"><source>Allocated discount tax incl.:</source><target>Allocated discount tax incl.:</target></trans-unit>
+      <trans-unit id="quantity_to_refund"><source>Quantity to refund</source><target>Quantity to refund</target></trans-unit>
+      <trans-unit id="restore_component_stock"><source>Restore this component stock</source><target>Restore this component stock</target></trans-unit>
+      <trans-unit id="generate_credit_slip"><source>Generate credit slip</source><target>Generate credit slip</target></trans-unit>
+      <trans-unit id="refund_component"><source>Refund component</source><target>Refund component</target></trans-unit>
     </body>
   </file>
 </xliff>

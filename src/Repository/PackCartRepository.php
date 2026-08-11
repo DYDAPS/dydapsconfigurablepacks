@@ -41,13 +41,14 @@ final class PackCartRepository
         );
 
         $normalizedQuantity = max(1, (int) $quantity);
+        $configurationJson = (string) json_encode($configuration, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $payload = [
             'id_cart' => $idCart,
             'id_product' => $idProduct,
             'id_product_attribute' => $idProductAttribute,
             'id_customization' => $idCustomization,
             'configuration_hash' => pSQL($hash),
-            'configuration_json' => pSQL(json_encode($configuration, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+            'configuration_json' => pSQL($configurationJson),
             'quantity' => $normalizedQuantity,
             'unit_price_tax_excl' => (float) ($price['unit_tax_excl'] ?? 0),
             'unit_price_tax_incl' => (float) ($price['unit_tax_incl'] ?? 0),
@@ -59,7 +60,7 @@ final class PackCartRepository
 
             return \Db::getInstance()->execute(
                 'UPDATE `' . _DB_PREFIX_ . 'dydaps_pack_cart`
-                SET configuration_json = "' . pSQL((string) $payload['configuration_json']) . '",
+                SET configuration_json = "' . pSQL($configurationJson) . '",
                     quantity = ' . $normalizedQuantity . ',
                     unit_price_tax_excl = ' . (float) $payload['unit_price_tax_excl'] . ',
                     unit_price_tax_incl = ' . (float) $payload['unit_price_tax_incl'] . ',

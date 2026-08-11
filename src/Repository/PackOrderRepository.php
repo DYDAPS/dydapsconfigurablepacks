@@ -189,6 +189,44 @@ final class PackOrderRepository
     }
 
     /**
+     * Return one immutable component snapshot row.
+     *
+     * @param int $idPackOrderComponent Configured pack component snapshot identifier.
+     *
+     * @return array<string, mixed>|null Component snapshot row.
+     */
+    public function getComponent(int $idPackOrderComponent): ?array
+    {
+        $row = \Db::getInstance()->getRow(
+            'SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_order_component`
+            WHERE id_pack_order_component = ' . (int) $idPackOrderComponent
+        );
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * Return component snapshot rows enriched with descriptive refund state.
+     *
+     * @param int $idPackOrder Configured pack order snapshot identifier.
+     *
+     * @return list<array<string, mixed>> Component rows with refunded and remaining quantities.
+     */
+    public function getComponentsWithRefundState(int $idPackOrder): array
+    {
+        $components = $this->getComponents($idPackOrder);
+        foreach ($components as &$component) {
+            $refundedQuantity = $this->getComponentRefundedQuantity((int) $component['id_pack_order_component']);
+            $orderedQuantity = max(0, (int) $component['quantity_total']);
+            $component['refunded_quantity'] = $refundedQuantity;
+            $component['refundable_quantity'] = max(0, $orderedQuantity - $refundedQuantity);
+        }
+        unset($component);
+
+        return $components;
+    }
+
+    /**
      * Return refund rows already recorded for a configured pack order.
      *
      * @param int $idPackOrder Configured pack order snapshot identifier.
@@ -262,7 +300,23 @@ final class PackOrderRepository
     {
         return (int) \Db::getInstance()->getValue(
             'SELECT COALESCE(SUM(quantity), 0) FROM `' . _DB_PREFIX_ . 'dydaps_pack_refund`
-            WHERE id_pack_order = ' . (int) $idPackOrder
+            WHERE id_pack_order = ' . (int) $idPackOrder . '
+            AND id_pack_order_component = 0'
+        );
+    }
+
+    /**
+     * Return the total component quantity already refunded for a snapshot row.
+     *
+     * @param int $idPackOrderComponent Configured pack component snapshot identifier.
+     *
+     * @return int Refunded component quantity.
+     */
+    public function getComponentRefundedQuantity(int $idPackOrderComponent): int
+    {
+        return (int) \Db::getInstance()->getValue(
+            'SELECT COALESCE(SUM(quantity), 0) FROM `' . _DB_PREFIX_ . 'dydaps_pack_refund`
+            WHERE id_pack_order_component = ' . (int) $idPackOrderComponent
         );
     }
 

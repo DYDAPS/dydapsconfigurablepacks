@@ -106,6 +106,44 @@ final class PackStockMovementService
     }
 
     /**
+     * Restore stock for one historical component snapshot.
+     *
+     * @param int $idOrder Order identifier.
+     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idPackOrderComponent Configured pack component snapshot identifier.
+     * @param int $idShop Shop identifier used for stock update.
+     * @param int $componentQuantity Component quantity to restore.
+     * @param string $operationScope Idempotency scope linked to the refund operation.
+     *
+     * @return void
+     */
+    public function restoreOrderComponent(int $idOrder, int $idPackOrder, int $idPackOrderComponent, int $idShop, int $componentQuantity, string $operationScope): void
+    {
+        if ($componentQuantity <= 0 || !$this->shouldMoveComponentStock($idPackOrder)) {
+            return;
+        }
+
+        $component = $this->orderRepository->getComponent($idPackOrderComponent);
+        if (!$component || (int) $component['id_pack_order'] !== $idPackOrder) {
+            throw new \RuntimeException('Pack component snapshot not found.');
+        }
+
+        $key = 'restore-component:' . $idOrder . ':' . $idPackOrder . ':' . $idPackOrderComponent . ':' . $componentQuantity . ':' . $operationScope;
+        if ($this->stockRepository->logOperation([
+            'operation_key' => $key,
+            'operation_type' => 'restore_component',
+            'id_order' => $idOrder,
+            'id_pack_order' => $idPackOrder,
+            'id_product' => (int) $component['id_product'],
+            'id_product_attribute' => (int) $component['id_product_attribute'],
+            'id_shop' => $idShop,
+            'quantity_delta' => $componentQuantity,
+        ])) {
+            $this->stockRepository->restore((int) $component['id_product'], (int) $component['id_product_attribute'], $idShop, $componentQuantity);
+        }
+    }
+
+    /**
      * Restore the native container stock after PrestaShop decremented it on order validation.
      *
      * @param int $idOrder Order identifier.
@@ -174,6 +212,43 @@ final class PackStockMovementService
             'quantity_delta' => -$quantity,
         ])) {
             $this->stockRepository->decrement((int) $snapshot['id_product'], 0, $idShop, $quantity);
+        }
+    }
+
+    /**
+     * Neutralize a native container restock for a partial refund quantity.
+     *
+     * @param int $idOrder Order identifier.
+     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idShop Shop identifier used for stock update.
+     * @param int $packQuantity Native pack quantity reinjected by PrestaShop.
+     * @param string $operationScope Idempotency scope linked to the native refund operation.
+     *
+     * @return void
+     */
+    public function neutralizeContainerRestockQuantity(int $idOrder, int $idPackOrder, int $idShop, int $packQuantity, string $operationScope): void
+    {
+        if ($packQuantity <= 0 || !$this->shouldMoveComponentStock($idPackOrder)) {
+            return;
+        }
+
+        $snapshot = $this->orderRepository->getOrderSnapshot($idPackOrder);
+        if (!$snapshot) {
+            return;
+        }
+
+        $key = 'container-neutralize-refund-restock:' . $idOrder . ':' . $idPackOrder . ':' . $packQuantity . ':' . $operationScope;
+        if ($this->stockRepository->logOperation([
+            'operation_key' => $key,
+            'operation_type' => 'container_neutralize_refund',
+            'id_order' => $idOrder,
+            'id_pack_order' => $idPackOrder,
+            'id_product' => (int) $snapshot['id_product'],
+            'id_product_attribute' => 0,
+            'id_shop' => $idShop,
+            'quantity_delta' => -$packQuantity,
+        ])) {
+            $this->stockRepository->decrement((int) $snapshot['id_product'], 0, $idShop, $packQuantity);
         }
     }
 

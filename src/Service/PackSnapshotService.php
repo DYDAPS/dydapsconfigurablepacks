@@ -116,10 +116,12 @@ final class PackSnapshotService
 
         foreach ($price->allocations as $component) {
             $component['quantity_total'] = (int) $component['quantity_per_pack'] * $packQuantity;
+            $component['allocated_discount_tax_excl'] = (float) ($component['allocated_discount_tax_excl'] ?? 0) * $packQuantity;
+            $component['allocated_discount_tax_incl'] = (float) ($component['allocated_discount_tax_incl'] ?? 0) * $packQuantity;
             // Refundable amounts are stored after discount allocation so later
             // partial refunds can reproduce the original tax/discount split.
-            $component['refundable_tax_excl'] = max(0.0, (float) $component['total_tax_excl'] - (float) ($component['allocated_discount_tax_excl'] ?? 0));
-            $component['refundable_tax_incl'] = max(0.0, (float) $component['total_tax_incl'] - (float) ($component['allocated_discount_tax_incl'] ?? 0));
+            $component['refundable_tax_excl'] = max(0.0, (float) $component['total_tax_excl'] * $packQuantity - (float) ($component['allocated_discount_tax_excl'] ?? 0));
+            $component['refundable_tax_incl'] = max(0.0, (float) $component['total_tax_incl'] * $packQuantity - (float) ($component['allocated_discount_tax_incl'] ?? 0));
             $this->orderRepository->createComponentSnapshot($idPackOrder, $component);
         }
 
