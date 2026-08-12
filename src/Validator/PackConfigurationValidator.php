@@ -1,14 +1,28 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Validator;
 
-use Dydaps\ConfigurablePacks\Model\PackConfiguration;
-use Dydaps\ConfigurablePacks\Repository\PackRepository;
-
 if (!defined('_PS_VERSION_')) {
     exit;
 }
+
+use Dydaps\ConfigurablePacks\Model\PackConfiguration;
+use Dydaps\ConfigurablePacks\Repository\PackRepository;
 
 /**
  * Validates a customer pack configuration against the current pack definition.
@@ -18,7 +32,7 @@ final class PackConfigurationValidator
     private PackRepository $repository;
 
     /**
-     * @param PackRepository $repository Repository used to load pack definitions and allowed selections.
+     * @param PackRepository $repository repository used to load pack definitions and allowed selections
      *
      * @return void
      */
@@ -34,11 +48,11 @@ final class PackConfigurationValidator
      * required components are selected, selected products/combinations are
      * allowed, and per-component quantities stay within configured bounds.
      *
-     * @param PackConfiguration $configuration Selected pack configuration.
-     * @param int $idShop Shop identifier used for pack lookup.
-     * @param int $idLang Language identifier used for component lookup.
+     * @param PackConfiguration $configuration selected pack configuration
+     * @param int $idShop shop identifier used for pack lookup
+     * @param int $idLang language identifier used for component lookup
      *
-     * @return list<string> English technical errors for callers to translate or normalize.
+     * @return list<string> english technical errors for callers to translate or normalize
      */
     public function validate(PackConfiguration $configuration, int $idShop, int $idLang): array
     {
@@ -54,13 +68,13 @@ final class PackConfigurationValidator
     /**
      * Validate and rebuild a safe configuration from the active pack definition.
      *
-     * @param PackConfiguration $configuration Customer-submitted configuration.
-     * @param int $idShop Shop identifier used for pack lookup.
-     * @param int $idLang Language identifier used for component lookup.
+     * @param PackConfiguration $configuration customer-submitted configuration
+     * @param int $idShop shop identifier used for pack lookup
+     * @param int $idLang language identifier used for component lookup
      *
-     * @return PackConfiguration Safe configuration rebuilt from allowed selections.
+     * @return PackConfiguration safe configuration rebuilt from allowed selections
      *
-     * @throws \RuntimeException When the configuration is invalid.
+     * @throws \RuntimeException when the configuration is invalid
      */
     public function validateAndNormalize(PackConfiguration $configuration, int $idShop, int $idLang): PackConfiguration
     {
@@ -82,7 +96,7 @@ final class PackConfigurationValidator
 
         $selectedByComponent = [];
         foreach ($configuration->getComponents() as $selection) {
-            $idComponent = (int) ($selection['id_component'] ?? 0);
+            $idComponent = (int) $selection['id_component'];
             if ($idComponent <= 0 || !isset($componentsById[$idComponent])) {
                 $errors[] = 'An unknown component was submitted.';
                 continue;

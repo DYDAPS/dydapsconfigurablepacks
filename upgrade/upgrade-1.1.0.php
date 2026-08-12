@@ -1,6 +1,18 @@
 <?php
-declare(strict_types=1);
-
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 if (!defined('_PS_VERSION_')) {
     exit;
 }
@@ -8,9 +20,9 @@ if (!defined('_PS_VERSION_')) {
 /**
  * Upgrade module schema and hooks for native refund/document integration.
  *
- * @param Module $module Installed module instance.
+ * @param Module $module installed module instance
  *
- * @return bool True when the schema and hook migration succeeds.
+ * @return bool true when the schema and hook migration succeeds
  */
 function upgrade_module_1_1_0(Module $module): bool
 {
@@ -48,7 +60,7 @@ function upgrade_module_1_1_0(Module $module): bool
     return true;
 }
 
-/**
+/*
  * Return every hook required by module version 1.1.0.
  *
  * @return array<int, string> Hook names.
@@ -78,7 +90,7 @@ if (!function_exists('dydaps_configurable_packs_110_required_hooks')) {
     }
 }
 
-/**
+/*
  * Return whether a table column exists.
  *
  * @param string $table Table name without prefix.
@@ -98,7 +110,7 @@ if (!function_exists('dydaps_configurable_packs_110_column_exists')) {
     }
 }
 
-/**
+/*
  * Return whether a table index exists.
  *
  * @param string $table Table name without prefix.

@@ -1,17 +1,33 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Controller\Front;
 
-use Dydaps\ConfigurablePacks\Service\PackCartService;
-use Dydaps\ConfigurablePacks\Service\PackConfigurationService;
-use Dydaps\ConfigurablePacks\Repository\PackRepository;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-
 if (!defined('_PS_VERSION_')) {
     exit;
 }
+
+use Dydaps\ConfigurablePacks\Repository\PackRepository;
+use Dydaps\ConfigurablePacks\Security\FrontAjaxToken;
+use Dydaps\ConfigurablePacks\Service\PackCartService;
+use Dydaps\ConfigurablePacks\Service\PackConfigurationService;
+use PrestaShop\PrestaShop\Adapter\LegacyContext;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Handles front-office AJAX operations for configurable packs.
@@ -26,19 +42,25 @@ final class AjaxController
     private PackConfigurationService $configurationService;
     private PackCartService $cartService;
     private PackRepository $repository;
+    private FrontAjaxToken $token;
+    private LegacyContext $legacyContext;
 
     /**
-     * @param PackConfigurationService $configurationService Service normalizing posted configurations.
-     * @param PackCartService $cartService Service adding configured packs to carts.
-     * @param PackRepository $repository Repository used to describe active packs.
+     * @param PackConfigurationService $configurationService service normalizing posted configurations
+     * @param PackCartService $cartService service adding configured packs to carts
+     * @param PackRepository $repository repository used to describe active packs
+     * @param FrontAjaxToken $token token service used to protect mutating AJAX actions
+     * @param LegacyContext $legacyContext adapter exposing the current PrestaShop context
      *
      * @return void
      */
-    public function __construct(PackConfigurationService $configurationService, PackCartService $cartService, PackRepository $repository)
+    public function __construct(PackConfigurationService $configurationService, PackCartService $cartService, PackRepository $repository, FrontAjaxToken $token, LegacyContext $legacyContext)
     {
         $this->configurationService = $configurationService;
         $this->cartService = $cartService;
         $this->repository = $repository;
+        $this->token = $token;
+        $this->legacyContext = $legacyContext;
     }
 
     /**
@@ -48,9 +70,9 @@ final class AjaxController
      * - describe: id_product
      * - add: id_product, quantity, configuration JSON
      *
-     * @param Request $request Front-office AJAX request.
+     * @param Request $request front-office AJAX request
      *
-     * @return JsonResponse Payload containing ok=true on success, or ok=false and error on failure.
+     * @return JsonResponse payload containing ok=true on success, or ok=false and error on failure
      */
     public function index(Request $request): JsonResponse
     {
@@ -77,13 +99,13 @@ final class AjaxController
     /**
      * Return the pack definition and allowed selections for the configurator.
      *
-     * @param Request $request Request containing id_product.
+     * @param Request $request request containing id_product
      *
      * @return JsonResponse array{ok: bool, pack?: array<string, mixed>, components?: list<array<string, mixed>>, error?: string}
      */
     private function describe(Request $request): JsonResponse
     {
-        $context = \Context::getContext();
+        $context = $this->legacyContext->getContext();
         $idProduct = (int) $request->get('id_product', 0);
         $pack = $this->repository->getPackByProduct($idProduct, (int) $context->shop->id);
         if (!$pack || (int) $pack['active'] !== 1) {
@@ -99,13 +121,17 @@ final class AjaxController
      *
      * Creates a cart when the visitor does not yet have one.
      *
-     * @param Request $request Request containing id_product, quantity and configuration JSON.
+     * @param Request $request request containing id_product, quantity and configuration JSON
      *
      * @return JsonResponse array{ok: true, configuration_hash: string}
      */
     private function add(Request $request): JsonResponse
     {
-        $context = \Context::getContext();
+        if (!$this->token->isValid((string) $request->get('csrf_token', ''))) {
+            return $this->json(['ok' => false, 'error' => $this->trans('Invalid security token.')], 403);
+        }
+
+        $context = $this->legacyContext->getContext();
         $cart = $context->cart;
         if (!$cart || !(int) $cart->id) {
             $cart = new \Cart();
@@ -115,7 +141,7 @@ final class AjaxController
             $cart->id_shop_group = (int) $context->shop->id_shop_group;
             $cart->id_shop = (int) $context->shop->id;
             $cart->add();
-            $context->cookie->id_cart = (int) $cart->id;
+            $context->cookie->__set('id_cart', (int) $cart->id);
             if (method_exists($context->cookie, 'write')) {
                 $context->cookie->write();
             }
@@ -136,9 +162,9 @@ final class AjaxController
      * Create a no-store JSON response for dynamic cart/configurator data.
      *
      * @param array<string, mixed> $payload
-     * @param int $status HTTP status code.
+     * @param int $status HTTP status code
      *
-     * @return JsonResponse JSON response with cache-control headers.
+     * @return JsonResponse JSON response with cache-control headers
      */
     private function json(array $payload, int $status = 200): JsonResponse
     {
@@ -151,17 +177,14 @@ final class AjaxController
     /**
      * Translate a front-office message when the PrestaShop translator is loaded.
      *
-     * @param string $message Source message.
+     * @param string $message source message
      *
-     * @return string Translated message when possible, otherwise the source message.
+     * @return string translated message when possible, otherwise the source message
      */
     private function trans(string $message): string
     {
-        $context = \Context::getContext();
-        if (isset($context->translator) && is_object($context->translator)) {
-            return $context->translator->trans($message, [], 'Modules.Dydapsconfigurablepacks.Shop');
-        }
-
-        return $message;
+        return $this->legacyContext->getContext()
+            ->getTranslator()
+            ->trans($message, [], 'Modules.Dydapsconfigurablepacks.Shop');
     }
 }

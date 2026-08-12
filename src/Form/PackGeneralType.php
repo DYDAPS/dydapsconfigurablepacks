@@ -2,7 +2,15 @@
 /**
  * 2007-2026 PrestaShop SA and Contributors
  *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
  * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 declare(strict_types=1);
@@ -38,8 +46,8 @@ final class PackGeneralType extends TranslatorAwareType
     /**
      * Build the general pack settings form.
      *
-     * @param FormBuilderInterface $builder Symfony form builder.
-     * @param array<string, mixed> $options Symfony form options.
+     * @param FormBuilderInterface $builder symfony form builder
+     * @param array<string, mixed> $options symfony form options
      *
      * @return void
      */
@@ -128,7 +136,7 @@ final class PackGeneralType extends TranslatorAwareType
     /**
      * Configure translation and CSRF defaults for the form type.
      *
-     * @param OptionsResolver $resolver Symfony options resolver.
+     * @param OptionsResolver $resolver symfony options resolver
      *
      * @return void
      */

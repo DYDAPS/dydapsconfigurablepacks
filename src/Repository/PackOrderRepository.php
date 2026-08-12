@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Repository;
@@ -33,11 +47,11 @@ final class PackOrderRepository
      *     unit_price_tax_incl: float,
      *     total_price_tax_excl: float,
      *     total_price_tax_incl: float
-     * }&array<string, mixed> $snapshot Immutable order snapshot payload.
+     * }&array<string, mixed> $snapshot Immutable order snapshot payload
      *
-     * @return int Created dydaps_pack_order identifier.
+     * @return int created dydaps_pack_order identifier
      *
-     * @throws \RuntimeException When the native order detail is missing.
+     * @throws \RuntimeException when the native order detail is missing
      */
     public function createSnapshot(array $snapshot): int
     {
@@ -83,12 +97,12 @@ final class PackOrderRepository
     /**
      * Return an existing snapshot id for an already transferred cart line.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idCart Cart identifier.
-     * @param int $idCustomization Native customization identifier.
-     * @param string $configurationHash Stable configuration hash.
+     * @param int $idOrder order identifier
+     * @param int $idCart cart identifier
+     * @param int $idCustomization native customization identifier
+     * @param string $configurationHash stable configuration hash
      *
-     * @return int Existing snapshot identifier or zero.
+     * @return int existing snapshot identifier or zero
      */
     public function findExistingSnapshotId(int $idOrder, int $idCart, int $idCustomization, string $configurationHash): int
     {
@@ -104,10 +118,10 @@ final class PackOrderRepository
     /**
      * Create a component snapshot row for a pack order snapshot.
      *
-     * @param int $idPackOrder Configured pack order snapshot identifier.
-     * @param array<string, mixed> $component Component allocation and catalog snapshot data.
+     * @param int $idPackOrder configured pack order snapshot identifier
+     * @param array<string, mixed> $component component allocation and catalog snapshot data
      *
-     * @return bool True when the component snapshot row is inserted.
+     * @return bool true when the component snapshot row is inserted
      */
     public function createComponentSnapshot(int $idPackOrder, array $component): bool
     {
@@ -136,7 +150,7 @@ final class PackOrderRepository
     /**
      * Return configured pack snapshots for an order.
      *
-     * @param int $idOrder Order identifier.
+     * @param int $idOrder order identifier
      *
      * @return list<array<string, mixed>>
      */
@@ -148,9 +162,9 @@ final class PackOrderRepository
     /**
      * Return one configured pack order snapshot.
      *
-     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idPackOrder configured pack order snapshot identifier
      *
-     * @return array<string, mixed>|null Snapshot row.
+     * @return array<string, mixed>|null snapshot row
      */
     public function getOrderSnapshot(int $idPackOrder): ?array
     {
@@ -162,9 +176,9 @@ final class PackOrderRepository
     /**
      * Return one configured pack order snapshot by native order detail.
      *
-     * @param int $idOrderDetail Native order detail identifier.
+     * @param int $idOrderDetail native order detail identifier
      *
-     * @return array<string, mixed>|null Snapshot row.
+     * @return array<string, mixed>|null snapshot row
      */
     public function getOrderSnapshotByOrderDetail(int $idOrderDetail): ?array
     {
@@ -179,7 +193,7 @@ final class PackOrderRepository
     /**
      * Return component snapshot rows for a configured pack order.
      *
-     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idPackOrder configured pack order snapshot identifier
      *
      * @return list<array<string, mixed>>
      */
@@ -191,9 +205,9 @@ final class PackOrderRepository
     /**
      * Return one immutable component snapshot row.
      *
-     * @param int $idPackOrderComponent Configured pack component snapshot identifier.
+     * @param int $idPackOrderComponent configured pack component snapshot identifier
      *
-     * @return array<string, mixed>|null Component snapshot row.
+     * @return array<string, mixed>|null component snapshot row
      */
     public function getComponent(int $idPackOrderComponent): ?array
     {
@@ -208,9 +222,9 @@ final class PackOrderRepository
     /**
      * Return component snapshot rows enriched with descriptive refund state.
      *
-     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idPackOrder configured pack order snapshot identifier
      *
-     * @return list<array<string, mixed>> Component rows with refunded and remaining quantities.
+     * @return list<array<string, mixed>> component rows with refunded and remaining quantities
      */
     public function getComponentsWithRefundState(int $idPackOrder): array
     {
@@ -229,7 +243,7 @@ final class PackOrderRepository
     /**
      * Return refund rows already recorded for a configured pack order.
      *
-     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idPackOrder configured pack order snapshot identifier
      *
      * @return list<array<string, mixed>>
      */
@@ -256,13 +270,13 @@ final class PackOrderRepository
      *     amount_tax_excl: float,
      *     amount_tax_incl: float,
      *     restocked?: bool|int
-     * } $refund Refund row.
+     * } $refund Refund row
      *
-     * @return bool True when a new row is inserted, false when the operation already exists.
+     * @return bool true when a new row is inserted, false when the operation already exists
      */
     public function recordRefund(array $refund): bool
     {
-        $operationKey = (string) ($refund['operation_key'] ?? '');
+        $operationKey = (string) $refund['operation_key'];
         if ($operationKey === '') {
             throw new \RuntimeException('Pack refund operation key is required.');
         }
@@ -292,9 +306,9 @@ final class PackOrderRepository
     /**
      * Return the total pack quantity already refunded for a snapshot.
      *
-     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idPackOrder configured pack order snapshot identifier
      *
-     * @return int Refunded pack quantity.
+     * @return int refunded pack quantity
      */
     public function getRefundedQuantity(int $idPackOrder): int
     {
@@ -308,9 +322,9 @@ final class PackOrderRepository
     /**
      * Return the total component quantity already refunded for a snapshot row.
      *
-     * @param int $idPackOrderComponent Configured pack component snapshot identifier.
+     * @param int $idPackOrderComponent configured pack component snapshot identifier
      *
-     * @return int Refunded component quantity.
+     * @return int refunded component quantity
      */
     public function getComponentRefundedQuantity(int $idPackOrderComponent): int
     {
@@ -323,9 +337,9 @@ final class PackOrderRepository
     /**
      * Return whether a snapshot already has component rows.
      *
-     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idPackOrder configured pack order snapshot identifier
      *
-     * @return bool True when at least one component row exists.
+     * @return bool true when at least one component row exists
      */
     public function hasComponents(int $idPackOrder): bool
     {

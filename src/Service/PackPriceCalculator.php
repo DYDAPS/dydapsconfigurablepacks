@@ -1,16 +1,30 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Service;
+
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
 
 use Dydaps\ConfigurablePacks\Config\PackConfig;
 use Dydaps\ConfigurablePacks\Model\PackConfiguration;
 use Dydaps\ConfigurablePacks\Model\PackPrice;
 use Dydaps\ConfigurablePacks\Repository\PackRepository;
-
-if (!defined('_PS_VERSION_')) {
-    exit;
-}
 
 /**
  * Calculates catalog prices for configured packs.
@@ -23,29 +37,32 @@ final class PackPriceCalculator
 {
     private PackRepository $repository;
     private PackDiscountAllocator $allocator;
+    private \Context $context;
 
     /**
-     * @param PackRepository $repository Repository used to load pack definitions.
-     * @param PackDiscountAllocator $allocator Service used to split pack-level discounts by component.
+     * @param PackRepository $repository repository used to load pack definitions
+     * @param PackDiscountAllocator $allocator service used to split pack-level discounts by component
+     * @param \Context $context injected legacy context used to build the temporary price context
      *
      * @return void
      */
-    public function __construct(PackRepository $repository, PackDiscountAllocator $allocator)
+    public function __construct(PackRepository $repository, PackDiscountAllocator $allocator, \Context $context)
     {
         $this->repository = $repository;
         $this->allocator = $allocator;
+        $this->context = $context;
     }
 
     /**
      * Calculate the price of a configured pack in the active shop context.
      *
-     * @param PackConfiguration $configuration Selected products, combinations and requested pack quantity.
-     * @param int $idShop Shop used for pack lookup and product price loading.
-     * @param int $idLang Language used for product names in allocation rows.
-     * @param int $idCurrency Currency context for PrestaShop price rules.
-     * @param int $idCustomer Customer context for catalog-specific price rules.
+     * @param PackConfiguration $configuration selected products, combinations and requested pack quantity
+     * @param int $idShop shop used for pack lookup and product price loading
+     * @param int $idLang language used for product names in allocation rows
+     * @param int $idCurrency currency context for PrestaShop price rules
+     * @param int $idCustomer customer context for catalog-specific price rules
      *
-     * @return PackPrice Unit and total pack prices, plus component discount allocation rows.
+     * @return PackPrice unit and total pack prices, plus component discount allocation rows
      */
     public function calculate(PackConfiguration $configuration, int $idShop, int $idLang, int $idCurrency, int $idCustomer = 0): PackPrice
     {
@@ -101,11 +118,11 @@ final class PackPriceCalculator
     /**
      * Build component price rows from current catalog prices.
      *
-     * @param PackConfiguration $configuration Selected pack configuration.
-     * @param int $idShop Shop identifier used to load products.
-     * @param int $idLang Language identifier used to load product names.
-     * @param int $idCurrency Currency identifier for price context.
-     * @param int $idCustomer Customer identifier for specific prices.
+     * @param PackConfiguration $configuration selected pack configuration
+     * @param int $idShop shop identifier used to load products
+     * @param int $idLang language identifier used to load product names
+     * @param int $idCurrency currency identifier for price context
+     * @param int $idCustomer customer identifier for specific prices
      *
      * @return list<array{
      *     id_component: int,
@@ -167,14 +184,14 @@ final class PackPriceCalculator
     /**
      * Build a temporary PrestaShop context matching the requested shop/currency.
      *
-     * @param int $idShop Shop identifier.
-     * @param int $idCurrency Currency identifier.
+     * @param int $idShop shop identifier
+     * @param int $idCurrency currency identifier
      *
-     * @return \Context Price context.
+     * @return \Context price context
      */
     private function buildPriceContext(int $idShop, int $idCurrency): \Context
     {
-        $context = \Context::getContext()->cloneContext();
+        $context = $this->context->cloneContext();
         if ($idShop > 0) {
             $context->shop = new \Shop($idShop);
         }
@@ -188,10 +205,10 @@ final class PackPriceCalculator
     /**
      * Apply component-level pricing behavior to a unit amount.
      *
-     * @param float $unitAmount Unit price in the current tax mode.
-     * @param array<string, mixed> $definition Component definition.
+     * @param float $unitAmount unit price in the current tax mode
+     * @param array<string, mixed> $definition component definition
      *
-     * @return float Adjusted unit amount.
+     * @return float adjusted unit amount
      */
     private function applyComponentPricing(float $unitAmount, array $definition, float $taxRatio = 1.0): float
     {
@@ -214,11 +231,11 @@ final class PackPriceCalculator
      * This is used when a pack-level fixed amount must be represented as a
      * tax-included amount although selected components can have different rates.
      *
-     * @param float $amountTaxExcl Amount excluding tax to convert.
-     * @param float $baseTaxExcl Component total excluding tax.
-     * @param float $baseTaxIncl Component total including tax.
+     * @param float $amountTaxExcl amount excluding tax to convert
+     * @param float $baseTaxExcl component total excluding tax
+     * @param float $baseTaxIncl component total including tax
      *
-     * @return float Weighted tax-included amount.
+     * @return float weighted tax-included amount
      */
     private function convertTaxExclToWeightedTaxIncl(float $amountTaxExcl, float $baseTaxExcl, float $baseTaxIncl): float
     {

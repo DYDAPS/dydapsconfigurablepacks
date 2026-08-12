@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Service;
@@ -19,14 +33,14 @@ final class PackDiscountAllocator
     /**
      * Allocate the given discount amounts to component rows.
      *
-     * @param float $discountTaxExcl Pack-level discount excluding tax.
-     * @param float $discountTaxIncl Pack-level discount including tax.
+     * @param float $discountTaxExcl pack-level discount excluding tax
+     * @param float $discountTaxIncl pack-level discount including tax
      * @param list<array{
      *     total_tax_excl?: float|int|string,
      *     total_tax_incl?: float|int|string
-     * }&array<string, mixed>> $components Component price rows.
+     * }&array<string, mixed>> $components Component price rows
      *
-     * @return list<array<string, mixed>> Component rows with allocated_discount_tax_excl and allocated_discount_tax_incl.
+     * @return list<array<string, mixed>> component rows with allocated_discount_tax_excl and allocated_discount_tax_incl
      */
     public function allocate(float $discountTaxExcl, float $discountTaxIncl, array $components): array
     {

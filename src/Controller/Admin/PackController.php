@@ -1,22 +1,36 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Controller\Admin;
 
-use Dydaps\ConfigurablePacks\Grid\Definition\Factory\PackGridDefinitionFactory;
-use Dydaps\ConfigurablePacks\Grid\Filters\PackFilters;
-use Dydaps\ConfigurablePacks\Repository\PackRepository;
-use Dydaps\ConfigurablePacks\Form\PackGeneralType;
-use PrestaShop\PrestaShop\Core\Grid\GridFactoryInterface;
-use PrestaShop\PrestaShop\Core\Grid\Presenter\GridPresenterInterface;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-
 if (!defined('_PS_VERSION_')) {
     exit;
 }
+
+use Dydaps\ConfigurablePacks\Form\PackGeneralType;
+use Dydaps\ConfigurablePacks\Grid\Definition\Factory\PackGridDefinitionFactory;
+use Dydaps\ConfigurablePacks\Grid\Filters\PackFilters;
+use Dydaps\ConfigurablePacks\Repository\PackRepository;
+use PrestaShop\PrestaShop\Core\Grid\GridFactoryInterface;
+use PrestaShop\PrestaShop\Core\Grid\Presenter\GridPresenterInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Back-office controller for configurable pack administration.
@@ -30,10 +44,10 @@ final class PackController extends AbstractDydapsAdminController
     private PackRepository $repository;
 
     /**
-     * @param GridFactoryInterface $gridFactory Factory building the pack grid.
-     * @param GridPresenterInterface $gridPresenter Presenter converting grids to template data.
-     * @param PackRepository $repository Repository used for pack persistence.
-     * @param object|null $translator PrestaShop translator-like service.
+     * @param GridFactoryInterface $gridFactory factory building the pack grid
+     * @param GridPresenterInterface $gridPresenter presenter converting grids to template data
+     * @param PackRepository $repository repository used for pack persistence
+     * @param object|null $translator prestaShop translator-like service
      *
      * @return void
      */
@@ -48,14 +62,14 @@ final class PackController extends AbstractDydapsAdminController
     /**
      * Display the pack grid.
      *
-     * @param Request $request Current admin request.
+     * @param Request $request current admin request
      *
-     * @return Response Rendered pack grid page.
+     * @return Response rendered pack grid page
      */
     public function index(Request $request): Response
     {
         $this->denyRead($request);
-        $gridQuery = $this->getArrayParameter($request, 'query', PackGridDefinitionFactory::GRID_ID);
+        $gridQuery = $this->getArrayFromBag($request, 'query', PackGridDefinitionFactory::GRID_ID);
         $filters = new PackFilters($gridQuery);
         $grid = $this->gridFactory->getGrid($filters);
 
@@ -63,22 +77,23 @@ final class PackController extends AbstractDydapsAdminController
             'layoutTitle' => $this->t('Configurable Packs', 'Modules.Dydapsconfigurablepacks.Admin'),
             'active' => 'packs',
             'grid' => $this->presentGrid($grid),
-            'csrfToken' => $this->get('security.csrf.token_manager')->getToken('dydaps.configurable_packs.write')->getValue(),
+            'settingsCsrfToken' => $this->csrfToken('dydaps.configurable_packs.settings'),
+            'deleteDataOnUninstall' => (bool) \Configuration::get(\Dydaps\ConfigurablePacks\Config\PackConfig::KEY_DELETE_DATA),
         ]);
     }
 
     /**
      * Convert submitted grid filters into the canonical grid query parameters.
      *
-     * @param Request $request Current admin request.
+     * @param Request $request current admin request
      *
-     * @return RedirectResponse Redirect to the filtered grid.
+     * @return RedirectResponse redirect to the filtered grid
      */
     public function search(Request $request): RedirectResponse
     {
         $this->denyRead($request);
 
-        $payload = $this->getArrayParameter($request, 'request', PackGridDefinitionFactory::GRID_ID);
+        $payload = $this->getArrayFromBag($request, 'request', PackGridDefinitionFactory::GRID_ID);
         $filters = $payload['filters'] ?? $payload;
         $filters = is_array($filters) ? $filters : [];
         unset($filters['_token'], $filters['actions']);
@@ -98,13 +113,13 @@ final class PackController extends AbstractDydapsAdminController
     /**
      * Display and process the pack creation form.
      *
-     * @param Request $request Current admin request.
+     * @param Request $request current admin request
      *
-     * @return Response Rendered form or redirect response after save.
+     * @return Response rendered form or redirect response after save
      */
     public function create(Request $request): Response
     {
-        $this->denyUpdate($request);
+        $this->denyCreate($request);
 
         return $this->handleForm($request, null);
     }
@@ -112,10 +127,10 @@ final class PackController extends AbstractDydapsAdminController
     /**
      * Display and process the pack edit form.
      *
-     * @param Request $request Current admin request.
-     * @param int $id Pack identifier.
+     * @param Request $request current admin request
+     * @param int $id pack identifier
      *
-     * @return Response Rendered form or redirect response after save.
+     * @return Response rendered form or redirect response after save
      */
     public function edit(Request $request, int $id): Response
     {
@@ -133,15 +148,14 @@ final class PackController extends AbstractDydapsAdminController
     /**
      * Toggle a pack definition between enabled and disabled states.
      *
-     * @param Request $request Current admin request.
-     * @param int $id Pack identifier.
+     * @param Request $request current admin request
+     * @param int $id pack identifier
      *
-     * @return RedirectResponse Redirect back to the pack grid.
+     * @return RedirectResponse redirect back to the pack grid
      */
     public function toggle(Request $request, int $id): RedirectResponse
     {
         $this->denyUpdate($request);
-        $this->assertValidCsrf($request, 'dydaps.configurable_packs.write');
         \Db::getInstance()->execute('UPDATE `' . _DB_PREFIX_ . 'dydaps_pack` SET active = IF(active = 1, 0, 1), updated_at = NOW() WHERE id_pack = ' . (int) $id);
         $this->addFlash('success', $this->t('Pack status updated.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
@@ -151,15 +165,14 @@ final class PackController extends AbstractDydapsAdminController
     /**
      * Soft-delete a pack definition.
      *
-     * @param Request $request Current admin request.
-     * @param int $id Pack identifier.
+     * @param Request $request current admin request
+     * @param int $id pack identifier
      *
-     * @return RedirectResponse Redirect back to the pack grid.
+     * @return RedirectResponse redirect back to the pack grid
      */
     public function delete(Request $request, int $id): RedirectResponse
     {
         $this->denyDelete($request);
-        $this->assertValidCsrf($request, 'dydaps.configurable_packs.write');
         $this->repository->deletePack($id);
         $this->addFlash('success', $this->t('Pack configuration deleted.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
@@ -169,9 +182,9 @@ final class PackController extends AbstractDydapsAdminController
     /**
      * Search products and combinations available to the current shop.
      *
-     * @param Request $request Current admin request.
+     * @param Request $request current admin request
      *
-     * @return JsonResponse Product choices usable by the component builder.
+     * @return JsonResponse product choices usable by the component builder
      */
     public function productSearch(Request $request): JsonResponse
     {
@@ -186,25 +199,42 @@ final class PackController extends AbstractDydapsAdminController
             'ok' => true,
             'products' => $this->repository->searchProductsForBuilder(
                 $query,
-                (int) \Context::getContext()->shop->id,
-                (int) \Context::getContext()->language->id
+                (int) $this->getContext()->shop->id,
+                (int) $this->getContext()->language->id
             ),
         ]);
     }
 
     /**
+     * Save module settings.
+     *
+     * @param Request $request current admin request
+     *
+     * @return RedirectResponse redirect back to the pack grid
+     */
+    public function settings(Request $request): RedirectResponse
+    {
+        $this->denyUpdate($request);
+        $this->assertValidCsrf($request, 'dydaps.configurable_packs.settings');
+        \Configuration::updateValue(\Dydaps\ConfigurablePacks\Config\PackConfig::KEY_DELETE_DATA, (int) $request->request->get('delete_data_on_uninstall', 0));
+        $this->addFlash('success', $this->t('Settings updated.', 'Modules.Dydapsconfigurablepacks.Admin'));
+
+        return $this->redirectToRoute('dydaps_configurable_packs_index');
+    }
+
+    /**
      * Render and process the general pack form.
      *
-     * @param Request $request Current admin request.
-     * @param array<string, mixed>|null $pack Existing pack row, or null for creation defaults.
+     * @param Request $request current admin request
+     * @param array<string, mixed>|null $pack existing pack row, or null for creation defaults
      *
-     * @return Response Rendered form or redirect response after save.
+     * @return Response rendered form or redirect response after save
      */
     private function handleForm(Request $request, ?array $pack): Response
     {
         $data = $pack ?: [
             'id_product' => 0,
-            'id_shop' => (int) \Context::getContext()->shop->id,
+            'id_shop' => (int) $this->getContext()->shop->id,
             'active' => false,
             'pack_type' => 'fixed',
             'pricing_method' => 'fixed',
@@ -217,7 +247,7 @@ final class PackController extends AbstractDydapsAdminController
         ];
         if ($pack) {
             $data['active'] = (bool) $data['active'];
-            $data['components_json'] = json_encode($this->repository->getComponentsForAdmin((int) $pack['id_pack'], (int) \Context::getContext()->language->id), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $data['components_json'] = json_encode($this->repository->getComponentsForAdmin((int) $pack['id_pack'], (int) $this->getContext()->language->id), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 
         $form = $this->createForm(PackGeneralType::class, $data);
@@ -226,7 +256,7 @@ final class PackController extends AbstractDydapsAdminController
         if ($form->isSubmitted() && $form->isValid()) {
             $payload = $form->getData();
             $payload['id_pack'] = (int) ($pack['id_pack'] ?? 0);
-            $payload['id_shop'] = (int) ($pack['id_shop'] ?? \Context::getContext()->shop->id);
+            $payload['id_shop'] = (int) ($pack['id_shop'] ?? $this->getContext()->shop->id);
             $components = json_decode((string) ($payload['components_json'] ?? '[]'), true);
             if (!is_array($components)) {
                 $this->addFlash('error', $this->t('The pack component definition is invalid.', 'Modules.Dydapsconfigurablepacks.Admin'));
@@ -249,7 +279,7 @@ final class PackController extends AbstractDydapsAdminController
             }
             unset($payload['components_json']);
             $idPack = $this->repository->savePack($payload);
-            $this->repository->replaceComponents($idPack, array_values($components), (int) \Context::getContext()->language->id);
+            $this->repository->replaceComponents($idPack, array_values($components), (int) $this->getContext()->language->id);
             $this->addFlash('success', $this->t('Pack configuration saved.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
             return $this->redirectToRoute('dydaps_configurable_packs_index');
@@ -266,9 +296,9 @@ final class PackController extends AbstractDydapsAdminController
     /**
      * Validate component builder payload before replacing persisted components.
      *
-     * @param array<int, mixed> $components Submitted component payload.
+     * @param array<int, mixed> $components submitted component payload
      *
-     * @return list<string> Translated validation errors.
+     * @return list<string> translated validation errors
      */
     private function validateComponentsForSave(array $components): array
     {
@@ -320,7 +350,7 @@ final class PackController extends AbstractDydapsAdminController
     /**
      * Return an editable component example for newly created packs.
      *
-     * @return string JSON example.
+     * @return string JSON example
      */
     private function getDefaultComponentsJson(): string
     {
@@ -349,23 +379,5 @@ final class PackController extends AbstractDydapsAdminController
                 ],
             ],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    }
-
-    /**
-     * Extract a nested array parameter from the request or query bag.
-     *
-     * @param Request $request Current admin request.
-     * @param string $bag Source bag name: "request" for POST data, any other value for query data.
-     * @param string $key Top-level parameter key.
-     *
-     * @return array<string, mixed>
-     */
-    private function getArrayParameter(Request $request, string $bag, string $key): array
-    {
-        $source = $bag === 'request' ? $request->request : $request->query;
-        $all = $source->getIterator()->getArrayCopy();
-        $value = $all[$key] ?? [];
-
-        return is_array($value) ? $value : [];
     }
 }

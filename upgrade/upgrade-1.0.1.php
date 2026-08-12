@@ -1,6 +1,18 @@
 <?php
-declare(strict_types=1);
-
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 if (!defined('_PS_VERSION_')) {
     exit;
 }
@@ -8,13 +20,13 @@ if (!defined('_PS_VERSION_')) {
 /**
  * Upgrade module schema and hooks for native customization-backed cart lines.
  *
- * @param Module $module Installed module instance.
+ * @param Module $module installed module instance
  *
- * @return bool True when the schema and hook migration succeeds.
+ * @return bool true when the schema and hook migration succeeds
  */
 function upgrade_module_1_0_1(Module $module): bool
 {
-    $db = \Db::getInstance();
+    $db = Db::getInstance();
 
     if (!dydaps_configurable_packs_column_exists('dydaps_pack_cart', 'id_customization')
         && !$db->execute('ALTER TABLE `' . _DB_PREFIX_ . 'dydaps_pack_cart` ADD `id_customization` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `id_product_attribute`')) {
@@ -58,7 +70,7 @@ function upgrade_module_1_0_1(Module $module): bool
     return true;
 }
 
-/**
+/*
  * Return every hook required by module version 1.0.1.
  *
  * @return array<int, string> Hook names.
@@ -82,7 +94,7 @@ if (!function_exists('dydaps_configurable_packs_required_hooks')) {
     }
 }
 
-/**
+/*
  * Remove cart rows that cannot be safely linked to a native customized line.
  *
  * Legacy rows without a resolvable id_customization cannot preserve the
@@ -93,7 +105,7 @@ if (!function_exists('dydaps_configurable_packs_required_hooks')) {
 if (!function_exists('dydaps_configurable_packs_cleanup_unlinked_cart_rows')) {
     function dydaps_configurable_packs_cleanup_unlinked_cart_rows(): bool
     {
-        return \Db::getInstance()->execute(
+        return Db::getInstance()->execute(
             'DELETE pc FROM `' . _DB_PREFIX_ . 'dydaps_pack_cart` pc
             LEFT JOIN `' . _DB_PREFIX_ . 'cart_product` cp
                 ON cp.id_cart = pc.id_cart
@@ -113,7 +125,7 @@ if (!function_exists('dydaps_configurable_packs_cleanup_unlinked_cart_rows')) {
     }
 }
 
-/**
+/*
  * Return whether a table column exists.
  *
  * @param string $table Table name without prefix.
@@ -124,7 +136,7 @@ if (!function_exists('dydaps_configurable_packs_cleanup_unlinked_cart_rows')) {
 if (!function_exists('dydaps_configurable_packs_column_exists')) {
     function dydaps_configurable_packs_column_exists(string $table, string $column): bool
     {
-        return (int) \Db::getInstance()->getValue(
+        return (int) Db::getInstance()->getValue(
             'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = DATABASE()
             AND TABLE_NAME = "' . pSQL(_DB_PREFIX_ . $table) . '"
@@ -133,7 +145,7 @@ if (!function_exists('dydaps_configurable_packs_column_exists')) {
     }
 }
 
-/**
+/*
  * Return whether a table index exists.
  *
  * @param string $table Table name without prefix.
@@ -144,7 +156,7 @@ if (!function_exists('dydaps_configurable_packs_column_exists')) {
 if (!function_exists('dydaps_configurable_packs_index_exists')) {
     function dydaps_configurable_packs_index_exists(string $table, string $index): bool
     {
-        return (int) \Db::getInstance()->getValue(
+        return (int) Db::getInstance()->getValue(
             'SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
             WHERE TABLE_SCHEMA = DATABASE()
             AND TABLE_NAME = "' . pSQL(_DB_PREFIX_ . $table) . '"
@@ -153,7 +165,7 @@ if (!function_exists('dydaps_configurable_packs_index_exists')) {
     }
 }
 
-/**
+/*
  * Backfill stored cart quantities from native cart lines when customizations already exist.
  *
  * @return bool True when the update succeeds.
@@ -161,7 +173,7 @@ if (!function_exists('dydaps_configurable_packs_index_exists')) {
 if (!function_exists('dydaps_configurable_packs_backfill_cart_quantities')) {
     function dydaps_configurable_packs_backfill_cart_quantities(): bool
     {
-        return \Db::getInstance()->execute(
+        return Db::getInstance()->execute(
             'UPDATE `' . _DB_PREFIX_ . 'dydaps_pack_cart` pc
             INNER JOIN `' . _DB_PREFIX_ . 'cart_product` cp
                 ON cp.id_cart = pc.id_cart

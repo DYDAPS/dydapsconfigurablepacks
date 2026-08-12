@@ -8,6 +8,7 @@
       <trans-unit id="ajax_unknown_action"><source>Unknown action.</source><target>Unknown action.</target></trans-unit>
       <trans-unit id="pack_not_found"><source>Pack not found.</source><target>Pack not found.</target></trans-unit>
       <trans-unit id="invalid_pack_configuration"><source>Invalid pack configuration.</source><target>Invalid pack configuration.</target></trans-unit>
+      <trans-unit id="invalid_security_token"><source>Invalid security token.</source><target>Invalid security token.</target></trans-unit>
       <trans-unit id="component_available"><source>Available</source><target>Available</target></trans-unit>
       <trans-unit id="component_unavailable"><source>Unavailable</source><target>Unavailable</target></trans-unit>
       <trans-unit id="estimated_components_total"><source>Estimated components total:</source><target>Estimated components total:</target></trans-unit>

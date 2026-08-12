@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 $root = getenv('DYDAPS_PS_ROOT');
@@ -27,6 +41,7 @@ use Dydaps\ConfigurablePacks\Service\PackRefundService;
 use Dydaps\ConfigurablePacks\Service\PackStockCalculator;
 use Dydaps\ConfigurablePacks\Service\PackStockMovementService;
 use Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator;
+use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use PrestaShop\PrestaShop\Core\Domain\Order\Command\IssuePartialRefundCommand;
 use PrestaShop\PrestaShop\Core\Domain\Order\VoucherRefundType;
 
@@ -56,17 +71,17 @@ final class PackPrestaShopFlowIntegrationTest
      */
     public function __construct()
     {
-        $this->context = Context::getContext();
+        $this->context = (new LegacyContext())->getContext();
         $this->idShop = (int) $this->context->shop->id;
         $this->idLang = (int) $this->context->language->id;
         $this->idCurrency = (int) $this->context->currency->id;
-        $this->packRepository = new PackRepository();
+        $this->packRepository = new PackRepository($this->context);
         $this->cartRepository = new PackCartRepository();
         $this->cartSynchronizer = new PackCartSynchronizer($this->cartRepository);
         $this->cartService = new PackCartService(
             $this->cartRepository,
             new PackConfigurationHashGenerator(),
-            new PackPriceCalculator($this->packRepository, new PackDiscountAllocator()),
+            new PackPriceCalculator($this->packRepository, new PackDiscountAllocator(), $this->context),
             new PackAvailabilityService(new PackStockCalculator(new PackStockRepository())),
             new PackConfigurationValidator($this->packRepository)
         );
@@ -96,7 +111,7 @@ final class PackPrestaShopFlowIntegrationTest
         $validateOnlyPack = $this->createPackFixture('validate_only');
         $this->assertValidateOnlyDoesNotMoveComponentStock($validateOnlyPack);
 
-        echo "PrestaShop pack flow integration tests passed on " . _PS_VERSION_ . ".\n";
+        echo 'PrestaShop pack flow integration tests passed on ' . _PS_VERSION_ . ".\n";
     }
 
     /**
@@ -114,9 +129,9 @@ final class PackPrestaShopFlowIntegrationTest
         $kernel = new AdminKernel('prod', false);
         $kernel->boot();
         $GLOBALS['kernel'] = $kernel;
-        Context::getContext()->container = $kernel->getContainer();
+        $this->context->container = $kernel->getContainer();
         if (class_exists('\PrestaShop\PrestaShop\Adapter\SymfonyContainer')) {
-            \PrestaShop\PrestaShop\Adapter\SymfonyContainer::resetStaticCache();
+            PrestaShop\PrestaShop\Adapter\SymfonyContainer::resetStaticCache();
         }
         $this->kernel = $kernel;
     }
@@ -415,7 +430,7 @@ final class PackPrestaShopFlowIntegrationTest
      */
     private function assertNativeRefundCreditSlipAndDocumentHooks(array $fixture): void
     {
-        if (!$this->kernel || !Context::getContext()->container || !Context::getContext()->container->has('prestashop.core.command_bus')) {
+        if (!$this->kernel || !$this->context->container || !$this->context->container->has('prestashop.core.command_bus')) {
             throw new RuntimeException('Admin command bus is required for native refund integration tests.');
         }
 
@@ -430,7 +445,7 @@ final class PackPrestaShopFlowIntegrationTest
 
         $idOrderDetail = (int) $snapshot['id_order_detail'];
         $amount = number_format((float) $snapshot['unit_price_tax_incl'], 6, '.', '');
-        Context::getContext()->container->get('prestashop.core.command_bus')->handle(new IssuePartialRefundCommand(
+        $this->context->container->get('prestashop.core.command_bus')->handle(new IssuePartialRefundCommand(
             (int) $order->id,
             [
                 $idOrderDetail => [
@@ -474,7 +489,7 @@ final class PackPrestaShopFlowIntegrationTest
      */
     private function assertComponentRefundUiWorkflowServiceGuards(array $fixture): void
     {
-        if (!$this->kernel || !Context::getContext()->container || !Context::getContext()->container->has('prestashop.core.command_bus')) {
+        if (!$this->kernel || !$this->context->container || !$this->context->container->has('prestashop.core.command_bus')) {
             throw new RuntimeException('Admin command bus is required for component refund integration tests.');
         }
 
@@ -497,7 +512,8 @@ final class PackPrestaShopFlowIntegrationTest
         $repository = new PackOrderRepository();
         $refundService = new PackRefundService(
             $repository,
-            new PackStockMovementService($repository, $this->packRepository, new PackStockRepository())
+            new PackStockMovementService($repository, $this->packRepository, new PackStockRepository()),
+            $this->context
         );
 
         $firstRefund = $refundService->refundComponent((int) $order->id, (int) $component['id_pack_order_component'], 1, true, true);

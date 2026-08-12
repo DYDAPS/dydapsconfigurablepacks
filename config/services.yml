@@ -1,11 +1,16 @@
 services:
   _defaults: { }
 
+  # -----------------------
+  # Repositories
+  # -----------------------
   dydaps.configurable_packs.repository.pack:
     class: 'Dydaps\ConfigurablePacks\Repository\PackRepository'
     public: true
     autowire: true
     autoconfigure: true
+    arguments:
+      $context: '@=service("prestashop.adapter.legacy.context").getContext()'
 
   dydaps.configurable_packs.repository.cart:
     class: 'Dydaps\ConfigurablePacks\Repository\PackCartRepository'
@@ -25,6 +30,9 @@ services:
     autowire: true
     autoconfigure: true
 
+  # -----------------------
+  # Core services
+  # -----------------------
   dydaps.configurable_packs.service.hash:
     class: 'Dydaps\ConfigurablePacks\Service\PackConfigurationHashGenerator'
     public: true
@@ -41,8 +49,9 @@ services:
     class: 'Dydaps\ConfigurablePacks\Service\PackPriceCalculator'
     public: true
     arguments:
-      - '@dydaps.configurable_packs.repository.pack'
-      - '@dydaps.configurable_packs.service.discount_allocator'
+      0: '@dydaps.configurable_packs.repository.pack'
+      1: '@dydaps.configurable_packs.service.discount_allocator'
+      $context: '@=service("prestashop.adapter.legacy.context").getContext()'
 
   dydaps.configurable_packs.service.stock_calculator:
     class: 'Dydaps\ConfigurablePacks\Service\PackStockCalculator'
@@ -62,6 +71,15 @@ services:
     arguments:
       - '@dydaps.configurable_packs.repository.pack'
 
+  dydaps.configurable_packs.security.front_ajax_token:
+    class: 'Dydaps\ConfigurablePacks\Security\FrontAjaxToken'
+    public: true
+    arguments:
+      $context: '@=service("prestashop.adapter.legacy.context").getContext()'
+
+  # -----------------------
+  # Cart, order, stock and refunds
+  # -----------------------
   dydaps.configurable_packs.service.cart:
     class: 'Dydaps\ConfigurablePacks\Service\PackCartService'
     public: true
@@ -108,13 +126,20 @@ services:
     class: 'Dydaps\ConfigurablePacks\Service\PackRefundService'
     public: true
     arguments:
-      - '@dydaps.configurable_packs.repository.order'
-      - '@dydaps.configurable_packs.service.stock_movement'
+      0: '@dydaps.configurable_packs.repository.order'
+      1: '@dydaps.configurable_packs.service.stock_movement'
+      $context: '@=service("prestashop.adapter.legacy.context").getContext()'
 
+  # -----------------------
+  # Version compatibility aliases
+  # -----------------------
   PrestaShop\PrestaShop\Core\Grid\Query\DoctrineSearchCriteriaApplicatorInterface:
     alias: 'prestashop.core.query.doctrine_search_criteria_applicator'
     public: false
 
+  # -----------------------
+  # Grid
+  # -----------------------
   dydaps.configurable_packs.grid.definition.packs:
     class: 'Dydaps\ConfigurablePacks\Grid\Definition\Factory\PackGridDefinitionFactory'
     parent: 'prestashop.core.grid.definition.factory.abstract_grid_definition'
@@ -147,8 +172,10 @@ services:
       - '@prestashop.core.grid.filter.form_factory'
       - '@prestashop.core.hook.dispatcher'
 
-  dydaps.configurable_packs.controller.admin.pack:
-    class: 'Dydaps\ConfigurablePacks\Controller\Admin\PackController'
+  # -----------------------
+  # Controllers
+  # -----------------------
+  Dydaps\ConfigurablePacks\Controller\Admin\PackController:
     public: true
     autowire: true
     autoconfigure: true
@@ -158,6 +185,13 @@ services:
       - '@dydaps.configurable_packs.repository.pack'
       - '@translator'
 
+  dydaps.configurable_packs.controller.admin.pack:
+    alias: 'Dydaps\ConfigurablePacks\Controller\Admin\PackController'
+    public: true
+
+  # -----------------------
+  # Forms
+  # -----------------------
   dydaps.configurable_packs.form.general:
     class: 'Dydaps\ConfigurablePacks\Form\PackGeneralType'
     parent: 'form.type.translatable.aware'
@@ -165,10 +199,20 @@ services:
     tags:
       - { name: 'form.type' }
 
-  dydaps.configurable_packs.controller.front.ajax:
-    class: 'Dydaps\ConfigurablePacks\Controller\Front\AjaxController'
+  # -----------------------
+  # Front office
+  # -----------------------
+  Dydaps\ConfigurablePacks\Controller\Front\AjaxController:
     public: true
+    autowire: true
+    autoconfigure: true
     arguments:
       - '@dydaps.configurable_packs.service.configuration'
       - '@dydaps.configurable_packs.service.cart'
       - '@dydaps.configurable_packs.repository.pack'
+      - '@dydaps.configurable_packs.security.front_ajax_token'
+      - '@prestashop.adapter.legacy.context'
+
+  dydaps.configurable_packs.controller.front.ajax:
+    alias: 'Dydaps\ConfigurablePacks\Controller\Front\AjaxController'
+    public: true

@@ -1,13 +1,27 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Service;
 
-use Dydaps\ConfigurablePacks\Model\PackConfiguration;
-
 if (!defined('_PS_VERSION_')) {
     exit;
 }
+
+use Dydaps\ConfigurablePacks\Model\PackConfiguration;
 
 /**
  * Enforces stock availability for configured packs before cart insertion.
@@ -17,7 +31,7 @@ final class PackAvailabilityService
     private PackStockCalculator $stockCalculator;
 
     /**
-     * @param PackStockCalculator $stockCalculator Stock calculator dependency.
+     * @param PackStockCalculator $stockCalculator stock calculator dependency
      *
      * @return void
      */
@@ -29,12 +43,12 @@ final class PackAvailabilityService
     /**
      * Ensure the requested configuration can be fulfilled from component stock.
      *
-     * @param PackConfiguration $configuration Selected pack configuration.
-     * @param int $idShop Shop identifier used for stock lookup.
+     * @param PackConfiguration $configuration selected pack configuration
+     * @param int $idShop shop identifier used for stock lookup
      *
      * @return void
      *
-     * @throws \RuntimeException When the requested quantity exceeds available component stock.
+     * @throws \RuntimeException when the requested quantity exceeds available component stock
      */
     public function assertAvailable(PackConfiguration $configuration, int $idShop): void
     {

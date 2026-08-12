@@ -2,11 +2,17 @@
 /**
  * 2007-2026 PrestaShop SA and Contributors
  *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
  * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
-declare(strict_types=1);
-
 if (!defined('_PS_VERSION_')) {
     exit;
 }
@@ -21,13 +27,13 @@ use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
 use Dydaps\ConfigurablePacks\Repository\PackOrderRepository;
 use Dydaps\ConfigurablePacks\Repository\PackRepository;
 use Dydaps\ConfigurablePacks\Repository\PackStockRepository;
+use Dydaps\ConfigurablePacks\Security\FrontAjaxToken;
+use Dydaps\ConfigurablePacks\Service\PackCartSynchronizer;
 use Dydaps\ConfigurablePacks\Service\PackDiscountAllocator;
+use Dydaps\ConfigurablePacks\Service\PackOrderService;
 use Dydaps\ConfigurablePacks\Service\PackPriceCalculator;
 use Dydaps\ConfigurablePacks\Service\PackRefundService;
-use Dydaps\ConfigurablePacks\Service\PackCartSynchronizer;
-use Dydaps\ConfigurablePacks\Service\PackOrderService;
 use Dydaps\ConfigurablePacks\Service\PackStockMovementService;
-use Dydaps\ConfigurablePacks\Service\PrestaShopCompatibilityService;
 use Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator;
 use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
 
@@ -52,7 +58,7 @@ final class DydapsConfigurablePacks extends Module
     public function __construct()
     {
         $this->name = 'dydapsconfigurablepacks';
-        $this->tab = 'catalog';
+        $this->tab = 'administration';
         $this->version = '1.1.0';
         $this->author = 'DYDAPS';
         $this->need_instance = 0;
@@ -63,13 +69,16 @@ final class DydapsConfigurablePacks extends Module
         $this->displayName = $this->trans('DYDAPS - Configurable Packs', [], 'Modules.Dydapsconfigurablepacks.Admin');
         $this->description = $this->trans('Create and sell configurable product packs.', [], 'Modules.Dydapsconfigurablepacks.Admin');
         $this->confirmUninstall = $this->trans('Uninstall module? Pack data can be retained or removed depending on module configuration.', [], 'Modules.Dydapsconfigurablepacks.Admin');
-        $this->ps_versions_compliancy = (new PrestaShopCompatibilityService())->getModuleCompliancy();
+        $this->ps_versions_compliancy = [
+            'min' => '8.1.0',
+            'max' => '9.99.999',
+        ];
     }
 
     /**
      * Install database schema, configuration, admin tab and required hooks.
      *
-     * @return bool True when every installation step succeeds.
+     * @return bool true when every installation step succeeds
      */
     public function install(): bool
     {
@@ -91,14 +100,15 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Uninstall module metadata and optionally remove persisted pack data.
      *
-     * @return bool True when PrestaShop completes module uninstall.
+     * @return bool true when PrestaShop completes module uninstall
      */
     public function uninstall(): bool
     {
         $deleteData = (int) Configuration::get(PackConfig::KEY_DELETE_DATA);
         $this->uninstallTab();
         Configuration::deleteByName(PackConfig::KEY_DELETE_DATA);
-        Configuration::deleteByName(PackConfig::KEY_PRICE_ROUND_PRECISION);
+        // Legacy cleanup for a removed configuration key that no longer affects runtime behavior.
+        Configuration::deleteByName('DYDAPS_CONFIGURABLE_PACKS_ROUND_PRECISION');
         if ($deleteData) {
             $this->runSqlFile(__DIR__ . '/sql/uninstall.sql');
         }
@@ -109,7 +119,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Redirect the legacy module configuration page to the Symfony controller.
      *
-     * @return string Fallback error HTML when the modern route cannot be resolved.
+     * @return string fallback error HTML when the modern route cannot be resolved
      */
     public function getContent(): string
     {
@@ -130,7 +140,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Register front-office assets and expose the module AJAX URL.
      *
-     * @param array<string, mixed> $params Hook parameters provided by PrestaShop.
+     * @param array<string, mixed> $params hook parameters provided by PrestaShop
      *
      * @return void
      */
@@ -153,20 +163,21 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Inject the pack configurator into active pack product pages.
      *
-     * @param array<string, mixed> $params Hook parameters containing a product or product identifier.
+     * @param array<string, mixed> $params hook parameters containing a product or product identifier
      *
-     * @return string Rendered configurator HTML, or an empty string for non-pack products.
+     * @return string rendered configurator HTML, or an empty string for non-pack products
      */
     public function hookDisplayProductAdditionalInfo(array $params): string
     {
         $idProduct = $this->resolveProductId($params);
-        if ($idProduct <= 0 || !(new PackRepository())->isPackProduct($idProduct, (int) $this->context->shop->id)) {
+        if ($idProduct <= 0 || !(new PackRepository($this->context))->isPackProduct($idProduct, (int) $this->context->shop->id)) {
             return '';
         }
 
         $this->context->smarty->assign([
             'dydaps_pack_id_product' => $idProduct,
             'dydaps_pack_ajax_url' => $this->context->link->getModuleLink($this->name, 'ajax', ['ajax' => 1], (bool) Tools::usingSecureMode()),
+            'dydaps_pack_ajax_token' => (new FrontAjaxToken($this->context))->getToken(),
         ]);
 
         return (string) $this->fetch('module:' . $this->name . '/views/templates/front/configurator.tpl');
@@ -175,9 +186,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Add a shortcut from the product edit page to the pack configuration screen.
      *
-     * @param array<string, mixed> $params Hook parameters containing a product or product identifier.
+     * @param array<string, mixed> $params hook parameters containing a product or product identifier
      *
-     * @return string Rendered admin helper HTML.
+     * @return string rendered admin helper HTML
      */
     public function hookDisplayAdminProductsExtra(array $params): string
     {
@@ -200,7 +211,7 @@ final class DydapsConfigurablePacks extends Module
      * @param array{
      *     order?: mixed,
      *     cart?: mixed
-     * } $params Validate-order hook parameters.
+     * } $params Validate-order hook parameters
      *
      * @return void
      */
@@ -222,7 +233,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Synchronize module cart rows after native cart mutations.
      *
-     * @param array<string, mixed> $params Hook parameters.
+     * @param array<string, mixed> $params hook parameters
      *
      * @return void
      */
@@ -243,7 +254,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Remove module cart rows after a native cart is deleted.
      *
-     * @param array<string, mixed> $params Hook parameters.
+     * @param array<string, mixed> $params hook parameters
      *
      * @return void
      */
@@ -267,7 +278,7 @@ final class DydapsConfigurablePacks extends Module
      * PrestaShop passes the mutable post-tax/post-reduction price by reference.
      * The pack line is resolved through the native customization id created at add time.
      *
-     * @param array<string, mixed> $params Product price calculation parameters.
+     * @param array<string, mixed> $params product price calculation parameters
      *
      * @return void
      */
@@ -303,13 +314,13 @@ final class DydapsConfigurablePacks extends Module
                 throw new RuntimeException('Invalid stored pack configuration for price calculation.');
             }
 
-            $repository = new PackRepository();
+            $repository = new PackRepository($this->context);
             $validatedConfiguration = (new PackConfigurationValidator($repository))->validateAndNormalize(
                 new PackConfiguration((int) $configurationData['id_product'], (array) ($configurationData['components'] ?? []), 1),
                 (int) ($params['id_shop'] ?? $this->context->shop->id ?? 0),
                 (int) ($params['id_lang'] ?? $this->context->language->id ?? 0)
             );
-            $calculatedPrice = (new PackPriceCalculator($repository, new PackDiscountAllocator()))->calculate(
+            $calculatedPrice = (new PackPriceCalculator($repository, new PackDiscountAllocator(), $this->context))->calculate(
                 $validatedConfiguration,
                 (int) ($params['id_shop'] ?? $this->context->shop->id ?? 0),
                 (int) ($params['id_lang'] ?? $this->context->language->id ?? 0),
@@ -334,9 +345,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Display configured pack snapshots in the main admin order view.
      *
-     * @param array<string, mixed> $params Hook parameters containing id_order when available.
+     * @param array<string, mixed> $params hook parameters containing id_order when available
      *
-     * @return string Rendered snapshot HTML, or an empty string when no snapshot exists.
+     * @return string rendered snapshot HTML, or an empty string when no snapshot exists
      */
     public function hookDisplayAdminOrderMain(array $params): string
     {
@@ -348,9 +359,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Display configured pack snapshots in the admin order side panel.
      *
-     * @param array<string, mixed> $params Hook parameters containing id_order when available.
+     * @param array<string, mixed> $params hook parameters containing id_order when available
      *
-     * @return string Rendered snapshot HTML, or an empty string when no snapshot exists.
+     * @return string rendered snapshot HTML, or an empty string when no snapshot exists
      */
     public function hookDisplayAdminOrderSide(array $params): string
     {
@@ -360,9 +371,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Display configured pack details in the customer order detail page.
      *
-     * @param array<string, mixed> $params Hook parameters containing an Order object or id_order.
+     * @param array<string, mixed> $params hook parameters containing an Order object or id_order
      *
-     * @return string Rendered snapshot HTML, or an empty string when no snapshot exists.
+     * @return string rendered snapshot HTML, or an empty string when no snapshot exists
      */
     public function hookDisplayOrderDetail(array $params): string
     {
@@ -374,7 +385,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * React to order status changes after PrestaShop updates an order.
      *
-     * @param array<string, mixed> $params Hook parameters containing id_order and newOrderStatus.
+     * @param array<string, mixed> $params hook parameters containing id_order and newOrderStatus
      *
      * @return void
      */
@@ -400,7 +411,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Synchronize native PrestaShop order-detail refunds to pack snapshots.
      *
-     * @param array<string, mixed> $params Native cancellation/refund hook parameters.
+     * @param array<string, mixed> $params native cancellation/refund hook parameters
      *
      * @return void
      */
@@ -427,7 +438,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Attach the latest native credit slip id to module refund rows when available.
      *
-     * @param array<string, mixed> $params Native order slip hook parameters.
+     * @param array<string, mixed> $params native order slip hook parameters
      *
      * @return void
      */
@@ -456,9 +467,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Display historical pack details on invoices.
      *
-     * @param array<string, mixed> $params PDF hook parameters.
+     * @param array<string, mixed> $params PDF hook parameters
      *
-     * @return string Rendered PDF-safe HTML.
+     * @return string rendered PDF-safe HTML
      */
     public function hookDisplayPDFInvoice(array $params): string
     {
@@ -468,9 +479,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Display historical pack details on delivery slips.
      *
-     * @param array<string, mixed> $params PDF hook parameters.
+     * @param array<string, mixed> $params PDF hook parameters
      *
-     * @return string Rendered PDF-safe HTML.
+     * @return string rendered PDF-safe HTML
      */
     public function hookDisplayPDFDeliverySlip(array $params): string
     {
@@ -480,9 +491,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Display historical pack details on credit slips.
      *
-     * @param array<string, mixed> $params PDF hook parameters.
+     * @param array<string, mixed> $params PDF hook parameters
      *
-     * @return string Rendered PDF-safe HTML.
+     * @return string rendered PDF-safe HTML
      */
     public function hookDisplayPDFOrderSlip(array $params): string
     {
@@ -492,7 +503,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Add historical pack details to important transactional emails.
      *
-     * @param array<string, mixed> $params Email hook parameters passed by reference.
+     * @param array<string, mixed> $params email hook parameters passed by reference
      *
      * @return void
      */
@@ -540,7 +551,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Tell PrestaShop that this module uses Symfony translation domains.
      *
-     * @return bool Always true for this module.
+     * @return bool always true for this module
      */
     public function isUsingNewTranslationSystem(): bool
     {
@@ -550,9 +561,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Render stored pack snapshots for an order.
      *
-     * @param int $idOrder Order identifier.
+     * @param int $idOrder order identifier
      *
-     * @return string Rendered snapshot HTML, or an empty string when no snapshot exists.
+     * @return string rendered snapshot HTML, or an empty string when no snapshot exists
      */
     private function renderOrderSnapshot(int $idOrder, bool $canRefund = false): string
     {
@@ -584,9 +595,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Handle a back-office component refund request from the order page.
      *
-     * @param int $idOrder Order identifier.
+     * @param int $idOrder order identifier
      *
-     * @return list<array{type: string, text: string}> Messages to display above the snapshot list.
+     * @return list<array{type: string, text: string}> messages to display above the snapshot list
      */
     private function handleComponentRefundPost(int $idOrder): array
     {
@@ -630,7 +641,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Return the CSRF token used by the component refund form.
      *
-     * @return string Stable token for the current employee.
+     * @return string stable token for the current employee
      */
     private function getComponentRefundToken(): string
     {
@@ -642,9 +653,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Render stored pack snapshots for a PDF object.
      *
-     * @param mixed $object Native PDF object.
+     * @param mixed $object native PDF object
      *
-     * @return string Rendered PDF HTML, or an empty string.
+     * @return string rendered PDF HTML, or an empty string
      */
     private function renderPdfSnapshotFromObject($object): string
     {
@@ -678,9 +689,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Build a plain-text historical pack summary for emails.
      *
-     * @param int $idOrder Order identifier.
+     * @param int $idOrder order identifier
      *
-     * @return string Plain-text pack details.
+     * @return string plain-text pack details
      */
     private function buildPlainPackDetails(int $idOrder): string
     {
@@ -707,9 +718,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Resolve an order id from email template variables.
      *
-     * @param array<string, mixed> $templateVars Email template variables.
+     * @param array<string, mixed> $templateVars email template variables
      *
-     * @return int Order identifier, or zero when not available.
+     * @return int order identifier, or zero when not available
      */
     private function resolveEmailOrderId(array $templateVars): int
     {
@@ -721,7 +732,9 @@ final class DydapsConfigurablePacks extends Module
 
         $reference = (string) ($templateVars['{order_name}'] ?? $templateVars['order_name'] ?? '');
         if ($reference !== '') {
-            return (int) Order::getIdByReference($reference);
+            $order = Order::getByReference($reference)->getFirst();
+
+            return $order instanceof Order ? (int) $order->id : 0;
         }
 
         return 0;
@@ -730,18 +743,17 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Create default module configuration values.
      *
-     * @return bool True when all configuration values are stored.
+     * @return bool true when all configuration values are stored
      */
     private function installConfiguration(): bool
     {
-        return Configuration::updateValue(PackConfig::KEY_DELETE_DATA, 0)
-            && Configuration::updateValue(PackConfig::KEY_PRICE_ROUND_PRECISION, 6);
+        return Configuration::updateValue(PackConfig::KEY_DELETE_DATA, 0);
     }
 
     /**
      * Ensure existing preserved tables include the latest module columns.
      *
-     * @return bool True when schema checks and migrations succeed.
+     * @return bool true when schema checks and migrations succeed
      */
     private function ensureInstalledSchema(): bool
     {
@@ -774,7 +786,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Register every hook used by the module.
      *
-     * @return bool True when all hooks were registered.
+     * @return bool true when all hooks were registered
      */
     private function registerRequiredHooks(): bool
     {
@@ -790,7 +802,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Return every hook required by the module.
      *
-     * @return array<int, string> Hook names.
+     * @return array<int, string> hook names
      */
     private function getRequiredHooks(): array
     {
@@ -832,7 +844,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Create the back-office tab used to manage configurable packs.
      *
-     * @return bool True when the tab already exists or was created.
+     * @return bool true when the tab already exists or was created
      */
     private function installTab(): bool
     {
@@ -870,7 +882,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Write the route file matching the installed PrestaShop major version.
      *
-     * @return bool True when the version-specific route template was copied.
+     * @return bool true when the version-specific route template was copied
      */
     private function writeRoutesFile(): bool
     {
@@ -883,10 +895,10 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Return whether a module table column exists.
      *
-     * @param string $table Table name without prefix.
-     * @param string $column Column name.
+     * @param string $table table name without prefix
+     * @param string $column column name
      *
-     * @return bool True when the column exists.
+     * @return bool true when the column exists
      */
     private function tableColumnExists(string $table, string $column): bool
     {
@@ -901,10 +913,10 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Return whether a module table index exists.
      *
-     * @param string $table Table name without prefix.
-     * @param string $index Index name.
+     * @param string $table table name without prefix
+     * @param string $index index name
      *
-     * @return bool True when the index exists.
+     * @return bool true when the index exists
      */
     private function tableIndexExists(string $table, string $index): bool
     {
@@ -919,9 +931,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Execute a module SQL file after replacing PrestaShop placeholders.
      *
-     * @param string $file Absolute path to an SQL file containing semicolon-separated statements.
+     * @param string $file absolute path to an SQL file containing semicolon-separated statements
      *
-     * @return bool True when the file exists, is readable and all statements execute successfully.
+     * @return bool true when the file exists, is readable and all statements execute successfully
      */
     public function runSqlFile(string $file): bool
     {
@@ -945,9 +957,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Resolve a product identifier from hook parameters or the current request.
      *
-     * @param array<string, mixed> $params Hook parameters from product-related hooks.
+     * @param array<string, mixed> $params hook parameters from product-related hooks
      *
-     * @return int Product identifier, or zero when it cannot be resolved.
+     * @return int product identifier, or zero when it cannot be resolved
      */
     private function resolveProductId(array $params): int
     {
@@ -968,9 +980,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Resolve the order service from the Symfony container.
      *
-     * @return PackOrderService Order synchronization service.
+     * @return PackOrderService order synchronization service
      *
-     * @throws RuntimeException When the service is not registered.
+     * @throws RuntimeException when the service is not registered
      */
     private function getOrderService(): PackOrderService
     {
@@ -979,17 +991,17 @@ final class DydapsConfigurablePacks extends Module
             return $container->get('dydaps.configurable_packs.service.order');
         }
 
-        $packRepository = new PackRepository();
+        $packRepository = new PackRepository($this->context);
         $orderRepository = new PackOrderRepository();
         $stockMovementService = new PackStockMovementService($orderRepository, $packRepository, new PackStockRepository());
 
         return new PackOrderService(
             new PackCartRepository(),
             new PackCartSynchronizer(new PackCartRepository()),
-            new \Dydaps\ConfigurablePacks\Service\PackSnapshotService(
+            new Dydaps\ConfigurablePacks\Service\PackSnapshotService(
                 $packRepository,
                 $orderRepository,
-                new PackPriceCalculator($packRepository, new PackDiscountAllocator()),
+                new PackPriceCalculator($packRepository, new PackDiscountAllocator(), $this->context),
                 new PackConfigurationValidator($packRepository)
             ),
             $stockMovementService
@@ -999,9 +1011,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Resolve the cart synchronizer from the Symfony container.
      *
-     * @return PackCartSynchronizer Cart synchronization service.
+     * @return PackCartSynchronizer cart synchronization service
      *
-     * @throws RuntimeException When the service is unavailable.
+     * @throws RuntimeException when the service is unavailable
      */
     private function getCartSynchronizer(): PackCartSynchronizer
     {
@@ -1016,9 +1028,9 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Resolve the stock movement service from the Symfony container.
      *
-     * @return PackStockMovementService Stock movement service.
+     * @return PackStockMovementService stock movement service
      *
-     * @throws RuntimeException When the service is unavailable.
+     * @throws RuntimeException when the service is unavailable
      */
     private function getStockMovementService(): PackStockMovementService
     {
@@ -1029,13 +1041,13 @@ final class DydapsConfigurablePacks extends Module
 
         $orderRepository = new PackOrderRepository();
 
-        return new PackStockMovementService($orderRepository, new PackRepository(), new PackStockRepository());
+        return new PackStockMovementService($orderRepository, new PackRepository($this->context), new PackStockRepository());
     }
 
     /**
      * Resolve the refund service from the Symfony container.
      *
-     * @return PackRefundService Refund synchronization service.
+     * @return PackRefundService refund synchronization service
      */
     private function getRefundService(): PackRefundService
     {
@@ -1048,16 +1060,17 @@ final class DydapsConfigurablePacks extends Module
 
         return new PackRefundService(
             $orderRepository,
-            new PackStockMovementService($orderRepository, new PackRepository(), new PackStockRepository())
+            new PackStockMovementService($orderRepository, new PackRepository($this->context), new PackStockRepository()),
+            $this->context
         );
     }
 
     /**
      * Return whether a status normally restores stock in PrestaShop.
      *
-     * @param int $idOrderState Native order state identifier.
+     * @param int $idOrderState native order state identifier
      *
-     * @return bool True when the status cancels or refunds the order.
+     * @return bool true when the status cancels or refunds the order
      */
     private function isStockRestoringStatus(int $idOrderState): bool
     {
@@ -1073,7 +1086,7 @@ final class DydapsConfigurablePacks extends Module
     /**
      * Writes a module-prefixed PrestaShop log entry.
      *
-     * @param string $message Log message.
+     * @param string $message log message
      *
      * @return void
      */

@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Grid\Definition\Factory;
@@ -8,6 +22,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\PrestaShop\Core\Grid\Action\Row\RowActionCollection;
+use PrestaShop\PrestaShop\Core\Grid\Action\Row\RowActionCollectionInterface;
 use PrestaShop\PrestaShop\Core\Grid\Action\Row\Type\LinkRowAction;
 use PrestaShop\PrestaShop\Core\Grid\Action\Row\Type\SubmitRowAction;
 use PrestaShop\PrestaShop\Core\Grid\Column\ColumnCollection;
@@ -16,6 +31,7 @@ use PrestaShop\PrestaShop\Core\Grid\Column\Type\DataColumn;
 use PrestaShop\PrestaShop\Core\Grid\Definition\Factory\AbstractGridDefinitionFactory;
 use PrestaShop\PrestaShop\Core\Grid\Filter\Filter;
 use PrestaShop\PrestaShop\Core\Grid\Filter\FilterCollection;
+use PrestaShop\PrestaShop\Core\Grid\Filter\FilterCollectionInterface;
 use PrestaShopBundle\Form\Admin\Type\SearchAndResetType;
 use PrestaShopBundle\Form\Admin\Type\YesAndNoChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -34,7 +50,7 @@ final class PackGridDefinitionFactory extends AbstractGridDefinitionFactory
     /**
      * Return the stable PrestaShop grid identifier.
      *
-     * @return string Grid identifier.
+     * @return string grid identifier
      */
     protected function getId(): string
     {
@@ -44,7 +60,7 @@ final class PackGridDefinitionFactory extends AbstractGridDefinitionFactory
     /**
      * Return the translated grid title.
      *
-     * @return string Translated grid name.
+     * @return string translated grid name
      */
     protected function getName(): string
     {
@@ -54,7 +70,7 @@ final class PackGridDefinitionFactory extends AbstractGridDefinitionFactory
     /**
      * Define displayed pack columns and row actions.
      *
-     * @return ColumnCollection Configured grid columns.
+     * @return ColumnCollection configured grid columns
      */
     protected function getColumns(): ColumnCollection
     {
@@ -77,9 +93,9 @@ final class PackGridDefinitionFactory extends AbstractGridDefinitionFactory
     /**
      * Define edit, toggle and delete actions for each pack row.
      *
-     * @return RowActionCollection Configured row actions.
+     * @return RowActionCollectionInterface configured row actions
      */
-    private function getRowActions(): RowActionCollection
+    private function getRowActions(): RowActionCollectionInterface
     {
         return (new RowActionCollection())
             ->add((new LinkRowAction('edit'))->setName($this->trans('Edit', [], 'Modules.Dydapsconfigurablepacks.Admin'))->setIcon('edit')->setOptions(['route' => 'dydaps_configurable_packs_edit', 'route_param_name' => 'id', 'route_param_field' => 'id_pack']))
@@ -90,9 +106,9 @@ final class PackGridDefinitionFactory extends AbstractGridDefinitionFactory
     /**
      * Define grid filters mapped to PackQueryBuilder fields.
      *
-     * @return FilterCollection Configured grid filters.
+     * @return FilterCollectionInterface configured grid filters
      */
-    protected function getFilters(): FilterCollection
+    protected function getFilters(): FilterCollectionInterface
     {
         return (new FilterCollection())
             ->add((new Filter('id_pack', TextType::class))->setAssociatedColumn('id_pack')->setTypeOptions(['required' => false]))

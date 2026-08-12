@@ -28,6 +28,8 @@ After installation, click **Configure** on the module page or open the **Configu
 
 The current release provides the production data model and pack grid. Product-page integration links merchants to the pack manager instead of replacing the native product editor.
 
+The settings panel includes a destructive uninstall option. It is disabled by default, so uninstalling the module keeps pack definitions, cart rows, order snapshots, stock logs and refund records unless an administrator explicitly enables deletion before uninstalling.
+
 ## Technical Notes
 
 The module uses native PrestaShop products as the visible sellable pack product. Each configured line is backed by a native customization row so PrestaShop can keep multiple configurations of the same product separate in cart and order details.
@@ -35,6 +37,8 @@ The module uses native PrestaShop products as the visible sellable pack product.
 When `stock_behavior = components`, component stock is the business source of truth. PrestaShop still performs its native container product movement during order validation, so the module records an idempotent compensating movement for the container and manages component movements in `ps_dydaps_pack_stock_operation`. The container product is also configured to allow orders so checkout is not blocked by its own stock level.
 
 When `stock_behavior = validate_only`, component stock is checked before cart insertion but the module does not decrement or restore component stock.
+
+Component refunds are exposed on the order detail integration and use PrestaShop's native partial refund command when available. The service also contains a full-pack refund method for snapshot-based calculations, but the current Back Office UI does not expose a separate full-pack refund action.
 
 ## Development workflow
 
@@ -50,4 +54,21 @@ Before packaging a release, run:
 composer validate --no-check-publish
 composer dump-autoload
 vendor/bin/php-cs-fixer fix --dry-run --diff --using-cache=no
+php tests/Unit/FrontAjaxCsrfContractTest.php
+php tests/Unit/AdminAclContractTest.php
+php tests/Unit/FrontAjaxTokenTest.php
+php tests/Unit/HashAndAllocationTest.php
+php tests/Unit/PackFlowContractTest.php
+php tests/Unit/StockCalculatorTest.php
 ```
+
+The integration test requires a running PrestaShop test shop and is not part of the
+packaging gate:
+
+```console
+$env:DYDAPS_PS_ROOT = "C:\path\to\prestashop"
+php tests/Integration/PackPrestaShopFlowIntegrationTest.php
+```
+
+Unit tests and the integration test live in the repository only; they are excluded from
+release archives via `.gitattributes`.

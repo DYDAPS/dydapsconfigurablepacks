@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Repository;
@@ -15,11 +29,11 @@ class PackStockRepository
     /**
      * Return available stock for a product or combination in a shop.
      *
-     * @param int $idProduct Product identifier.
-     * @param int $idProductAttribute Combination identifier, or zero for product stock.
-     * @param int $idShop Shop identifier.
+     * @param int $idProduct product identifier
+     * @param int $idProductAttribute combination identifier, or zero for product stock
+     * @param int $idShop shop identifier
      *
-     * @return int Available quantity reported by PrestaShop.
+     * @return int available quantity reported by PrestaShop
      */
     public function getAvailableQuantity(int $idProduct, int $idProductAttribute, int $idShop): int
     {
@@ -29,10 +43,10 @@ class PackStockRepository
     /**
      * Decrease PrestaShop available stock by the absolute quantity.
      *
-     * @param int $idProduct Product identifier.
-     * @param int $idProductAttribute Combination identifier, or zero for product stock.
-     * @param int $idShop Shop identifier.
-     * @param int $quantity Quantity to decrement.
+     * @param int $idProduct product identifier
+     * @param int $idProductAttribute combination identifier, or zero for product stock
+     * @param int $idShop shop identifier
+     * @param int $quantity quantity to decrement
      *
      * @return void
      */
@@ -44,10 +58,10 @@ class PackStockRepository
     /**
      * Increase PrestaShop available stock by the absolute quantity.
      *
-     * @param int $idProduct Product identifier.
-     * @param int $idProductAttribute Combination identifier, or zero for product stock.
-     * @param int $idShop Shop identifier.
-     * @param int $quantity Quantity to restore.
+     * @param int $idProduct product identifier
+     * @param int $idProductAttribute combination identifier, or zero for product stock
+     * @param int $idShop shop identifier
+     * @param int $quantity quantity to restore
      *
      * @return void
      */
@@ -70,7 +84,7 @@ class PackStockRepository
      *     quantity_delta: int
      * } $operation
      *
-     * @return bool True only when the operation key was inserted for the first time.
+     * @return bool true only when the operation key was inserted for the first time
      */
     public function logOperation(array $operation): bool
     {

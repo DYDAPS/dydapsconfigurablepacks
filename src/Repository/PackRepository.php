@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Repository;
@@ -16,13 +30,25 @@ if (!defined('_PS_VERSION_')) {
  */
 final class PackRepository
 {
+    private \Context $context;
+
+    /**
+     * @param \Context $context injected legacy context used to build front-office links
+     *
+     * @return void
+     */
+    public function __construct(\Context $context)
+    {
+        $this->context = $context;
+    }
+
     /**
      * Find the pack definition attached to a native product in one shop.
      *
-     * @param int $idProduct Native PrestaShop product identifier.
-     * @param int $idShop Shop identifier.
+     * @param int $idProduct native PrestaShop product identifier
+     * @param int $idShop shop identifier
      *
-     * @return array<string, mixed>|null Database row, or null when no pack is attached to the product/shop pair.
+     * @return array<string, mixed>|null database row, or null when no pack is attached to the product/shop pair
      */
     public function getPackByProduct(int $idProduct, int $idShop): ?array
     {
@@ -36,10 +62,10 @@ final class PackRepository
     /**
      * Check whether a product is an active configurable pack in the given shop.
      *
-     * @param int $idProduct Native PrestaShop product identifier.
-     * @param int $idShop Shop identifier.
+     * @param int $idProduct native PrestaShop product identifier
+     * @param int $idShop shop identifier
      *
-     * @return bool True when the product has an active pack definition for the shop.
+     * @return bool true when the product has an active pack definition for the shop
      */
     public function isPackProduct(int $idProduct, int $idShop): bool
     {
@@ -51,9 +77,9 @@ final class PackRepository
     /**
      * Find a non-deleted pack definition by module identifier.
      *
-     * @param int $idPack Pack identifier.
+     * @param int $idPack pack identifier
      *
-     * @return array<string, mixed>|null Database row, or null when missing or soft-deleted.
+     * @return array<string, mixed>|null database row, or null when missing or soft-deleted
      */
     public function getPack(int $idPack): ?array
     {
@@ -70,8 +96,8 @@ final class PackRepository
      * Component labels are loaded for the requested language, with a technical
      * fallback name when no translation exists.
      *
-     * @param int $idPack Pack identifier.
-     * @param int $idLang Language identifier used for component labels.
+     * @param int $idPack pack identifier
+     * @param int $idLang language identifier used for component labels
      *
      * @return list<array<string, mixed>>
      */
@@ -90,7 +116,7 @@ final class PackRepository
     /**
      * Return active products/combinations allowed for a component.
      *
-     * @param int $idComponent Component identifier.
+     * @param int $idComponent component identifier
      *
      * @return list<array<string, mixed>>
      */
@@ -110,9 +136,9 @@ final class PackRepository
      * shape intentionally mirrors the component tables so every supported
      * pricing, stock and quantity field is administrable.
      *
-     * @param int $idPack Pack identifier.
-     * @param list<array<string, mixed>> $components Component definitions.
-     * @param int $idLang Language used for component labels.
+     * @param int $idPack pack identifier
+     * @param list<array<string, mixed>> $components component definitions
+     * @param int $idLang language used for component labels
      *
      * @return void
      */
@@ -170,8 +196,8 @@ final class PackRepository
     /**
      * Return the full component payload used by the admin JSON editor.
      *
-     * @param int $idPack Pack identifier.
-     * @param int $idLang Language identifier.
+     * @param int $idPack pack identifier
+     * @param int $idLang language identifier
      *
      * @return list<array<string, mixed>>
      */
@@ -203,11 +229,11 @@ final class PackRepository
     /**
      * Return front-office-ready components with product labels and availability.
      *
-     * @param int $idPack Pack identifier.
-     * @param int $idLang Language identifier.
-     * @param int $idShop Shop identifier.
-     * @param int $idCurrency Currency identifier.
-     * @param int $idCustomer Customer identifier.
+     * @param int $idPack pack identifier
+     * @param int $idLang language identifier
+     * @param int $idShop shop identifier
+     * @param int $idCurrency currency identifier
+     * @param int $idCustomer customer identifier
      *
      * @return list<array<string, mixed>>
      */
@@ -227,7 +253,7 @@ final class PackRepository
                     continue;
                 }
                 $image = \Product::getCover($idProduct);
-                $link = \Context::getContext()->link;
+                $link = $this->context->link;
                 $specificPrice = null;
                 $priceTaxExcl = (float) \Product::getPriceStatic($idProduct, false, $idAttribute, 6, null, false, true, 1, false, $idCustomer, null, null, $specificPrice, true, true, null, true);
                 $priceTaxIncl = (float) \Product::getPriceStatic($idProduct, true, $idAttribute, 6, null, false, true, 1, false, $idCustomer, null, null, $specificPrice, true, true, null, true);
@@ -238,7 +264,7 @@ final class PackRepository
                     'reference' => $idAttribute > 0 ? $this->getCombinationReference($idAttribute) : (string) $product->reference,
                     'attributes' => $idAttribute > 0 ? \Product::getAttributesParams($idProduct, $idAttribute) : [],
                     'attributes_text' => $idAttribute > 0 ? strip_tags(\Product::getProductName($idProduct, $idAttribute, $idLang)) : '',
-                    'image' => $image ? $link->getImageLink($product->link_rewrite, (string) $image['id_image'], 'home_default') : '',
+                    'image' => $image ? $link->getImageLink($product->link_rewrite, (string) $image['id_image'], \ImageType::getFormattedName('home')) : '',
                     'available_quantity' => (int) \StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop),
                     'available' => (int) \StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop) > 0,
                     'price_tax_excl' => $priceTaxExcl,
@@ -258,9 +284,9 @@ final class PackRepository
     /**
      * Search active products and combinations for the admin component builder.
      *
-     * @param string $query Search term matched against name, product reference and combination reference.
-     * @param int $idShop Shop identifier used to scope products.
-     * @param int $idLang Language identifier used for labels and attribute names.
+     * @param string $query search term matched against name, product reference and combination reference
+     * @param int $idShop shop identifier used to scope products
+     * @param int $idLang language identifier used for labels and attribute names
      *
      * @return list<array{
      *     id_product: int,
@@ -330,9 +356,9 @@ final class PackRepository
      *     global_discount_percent?: float|int|string,
      *     global_discount_amount_tax_excl?: float|int|string,
      *     stock_behavior?: string
-     * } $data Form payload.
+     * } $data Form payload
      *
-     * @return int Pack identifier.
+     * @return int pack identifier
      */
     public function savePack(array $data): int
     {
@@ -373,9 +399,9 @@ final class PackRepository
      * container has no own stock; component validation remains the business
      * stock gate.
      *
-     * @param int $idProduct Native pack container product identifier.
-     * @param int $idShop Shop identifier.
-     * @param string $stockBehavior Pack stock behavior.
+     * @param int $idProduct native pack container product identifier
+     * @param int $idShop shop identifier
+     * @param string $stockBehavior pack stock behavior
      *
      * @return void
      */
@@ -393,8 +419,8 @@ final class PackRepository
     /**
      * Return active combination labels for the builder search result.
      *
-     * @param int $idProduct Product identifier.
-     * @param int $idLang Language identifier.
+     * @param int $idProduct product identifier
+     * @param int $idLang language identifier
      *
      * @return list<array{id_product_attribute: int, reference: string, attributes_text: string}>
      */
@@ -427,10 +453,10 @@ final class PackRepository
     /**
      * Return whether a product is active in the requested shop.
      *
-     * @param int $idProduct Product identifier.
-     * @param int $idShop Shop identifier.
+     * @param int $idProduct product identifier
+     * @param int $idShop shop identifier
      *
-     * @return bool True when the product has an active product_shop row.
+     * @return bool true when the product has an active product_shop row
      */
     public function isProductAvailableInShop(int $idProduct, int $idShop): bool
     {
@@ -445,10 +471,10 @@ final class PackRepository
     /**
      * Return whether a product combination is associated with the requested shop.
      *
-     * @param int $idProductAttribute Combination identifier.
-     * @param int $idShop Shop identifier.
+     * @param int $idProductAttribute combination identifier
+     * @param int $idShop shop identifier
      *
-     * @return bool True when the combination is scoped to the shop.
+     * @return bool true when the combination is scoped to the shop
      */
     public function isCombinationAvailableInShop(int $idProductAttribute, int $idShop): bool
     {
@@ -465,9 +491,9 @@ final class PackRepository
      * PrestaShop 9 no longer exposes the legacy Combination::getReference()
      * helper used by earlier versions, while the database column remains stable.
      *
-     * @param int $idProductAttribute Combination identifier.
+     * @param int $idProductAttribute combination identifier
      *
-     * @return string Combination reference, or an empty string when unavailable.
+     * @return string combination reference, or an empty string when unavailable
      */
     public function getCombinationReference(int $idProductAttribute): string
     {
@@ -484,12 +510,12 @@ final class PackRepository
     /**
      * Build one product choice row for the builder.
      *
-     * @param int $idProduct Product identifier.
-     * @param int $idProductAttribute Combination identifier.
-     * @param string $name Product name.
-     * @param string $reference Product or combination reference.
-     * @param string $attributesText Human-readable combination attributes.
-     * @param int $idLang Language identifier.
+     * @param int $idProduct product identifier
+     * @param int $idProductAttribute combination identifier
+     * @param string $name product name
+     * @param string $reference product or combination reference
+     * @param string $attributesText human-readable combination attributes
+     * @param int $idLang language identifier
      *
      * @return array{
      *     id_product: int,
@@ -513,8 +539,8 @@ final class PackRepository
         }
         $cover = \Product::getCover($idProduct);
         $image = '';
-        if (is_array($cover) && isset($cover['id_image']) && \Context::getContext()->link) {
-            $image = (string) \Context::getContext()->link->getImageLink((string) $product->link_rewrite, (string) $cover['id_image'], 'small_default');
+        if (is_array($cover) && isset($cover['id_image']) && $this->context->link) {
+            $image = (string) $this->context->link->getImageLink((string) $product->link_rewrite, (string) $cover['id_image'], \ImageType::getFormattedName('small'));
         }
 
         return [
@@ -530,9 +556,9 @@ final class PackRepository
     /**
      * Soft-delete a pack and disable it for the front office.
      *
-     * @param int $idPack Pack identifier.
+     * @param int $idPack pack identifier
      *
-     * @return bool True when the database update succeeds.
+     * @return bool true when the database update succeeds
      */
     public function deletePack(int $idPack): bool
     {

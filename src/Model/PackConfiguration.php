@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Model;
@@ -35,9 +49,9 @@ final class PackConfiguration
      *     id_product: int,
      *     id_product_attribute?: int,
      *     quantity?: int
-     * }> $components Selected component products, with quantities per pack unit.
-     * @param int $idProduct Native PrestaShop product sold as the pack container.
-     * @param int $quantity Requested pack quantity.
+     * }> $components Selected component products, with quantities per pack unit
+     * @param int $idProduct native PrestaShop product sold as the pack container
+     * @param int $quantity requested pack quantity
      *
      * @return void
      */
@@ -51,7 +65,7 @@ final class PackConfiguration
     /**
      * Return the native PrestaShop product sold as the pack container.
      *
-     * @return int Product identifier.
+     * @return int product identifier
      */
     public function getIdProduct(): int
     {
@@ -61,7 +75,7 @@ final class PackConfiguration
     /**
      * Return the number of configured packs requested.
      *
-     * @return int Quantity normalized to at least one.
+     * @return int quantity normalized to at least one
      */
     public function getQuantity(): int
     {

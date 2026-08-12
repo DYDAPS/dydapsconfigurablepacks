@@ -2,7 +2,15 @@
 /**
  * 2007-2026 PrestaShop SA and Contributors
  *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
  * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 declare(strict_types=1);
@@ -22,11 +30,6 @@ final class PackConfig
      * Boolean configuration flag controlling whether uninstall removes module data.
      */
     public const KEY_DELETE_DATA = 'DYDAPS_CONFIGURABLE_PACKS_DELETE_DATA';
-
-    /**
-     * Decimal precision used for persisted calculated prices.
-     */
-    public const KEY_PRICE_ROUND_PRECISION = 'DYDAPS_CONFIGURABLE_PACKS_ROUND_PRECISION';
 
     /**
      * Pricing strategy where the pack uses a configured tax-excluded fixed price.

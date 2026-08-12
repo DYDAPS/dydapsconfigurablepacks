@@ -1,0 +1,7 @@
+# Dev-only files excluded from release archives.
+/tests/ export-ignore
+/.gitignore export-ignore
+/.gitattributes export-ignore
+/phpstan.neon export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/composer.lock export-ignore

@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Security;
@@ -17,16 +31,48 @@ trait AdminPermissionsTrait
     /**
      * Deny access unless the current employee can perform an action.
      *
-     * @param Request $request Current admin request.
-     * @param string $action Permission action, such as read, update or delete.
+     * @param Request $request current admin request
+     * @param string $action permission action, such as read, create, update or delete
      *
      * @return void
      */
     protected function denyUnlessCan(Request $request, string $action): void
     {
-        $legacyController = (string) $request->attributes->get('_legacy_controller', 'AdminDydapsConfigurablePacks');
-        if (method_exists($this, 'isGranted') && !$this->isGranted($action, $legacyController)) {
+        if (method_exists($this, 'denyAccessUnlessGranted')) {
+            $this->denyAccessUnlessGranted($action, $this->getLegacyController($request));
+
+            return;
+        }
+
+        if (method_exists($this, 'isGranted') && !$this->isGranted($action, $this->getLegacyController($request))) {
             throw $this->createAccessDeniedException('You do not have permission to view this page.');
         }
+    }
+
+    /**
+     * Return whether the current employee can perform an action.
+     *
+     * @param Request $request current admin request
+     * @param string $action permission action, such as read, create, update or delete
+     *
+     * @return bool true when access is granted
+     */
+    protected function can(Request $request, string $action): bool
+    {
+        return method_exists($this, 'isGranted') && $this->isGranted($action, $this->getLegacyController($request));
+    }
+
+    /**
+     * Return the legacy controller used for PrestaShop ACL checks.
+     *
+     * @param Request $request current admin request
+     *
+     * @return string legacy controller name
+     */
+    protected function getLegacyController(Request $request): string
+    {
+        $legacyController = (string) $request->attributes->get('_legacy_controller');
+
+        return $legacyController !== '' ? $legacyController : 'AdminDydapsConfigurablePacks';
     }
 }

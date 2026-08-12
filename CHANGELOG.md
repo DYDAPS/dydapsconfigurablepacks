@@ -8,6 +8,14 @@
 - Improved back-office component labels so merchants no longer need to edit JSON manually.
 - Improved historical order display with component, price, tax and recorded refund details from immutable snapshots.
 - Added remaining pack-refund quantity validation to prevent over-refunding through the module refund service.
+- Added front-office CSRF protection for configurable pack cart mutations with a stable per-visitor token that survives cart changes.
+- Added a back-office setting to preserve or remove module data during uninstall.
+- Corrected back-office pack creation to require the create permission instead of update.
+- Restored native grid toggle/delete requests to PrestaShop CSRF handling.
+- Harmonized admin permission, CSRF and request helpers with other DYDAPS modules.
+- Removed obsolete configuration, dead services and unused compatibility helpers.
+- Harmonized directory protection index files.
+- Expanded automated test coverage for the front token, admin ACL wiring and CSRF contracts.
 - Fixed French translation catalogs encoding.
 - Kept full declared compatibility scoped to PrestaShop 8.1 or later.
 

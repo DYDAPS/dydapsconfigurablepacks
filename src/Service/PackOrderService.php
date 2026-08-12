@@ -1,13 +1,27 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Service;
 
-use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
-
 if (!defined('_PS_VERSION_')) {
     exit;
 }
+
+use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
 
 /**
  * Synchronizes configured packs from a validated cart to an order.
@@ -20,10 +34,10 @@ final class PackOrderService
     private PackStockMovementService $stockMovementService;
 
     /**
-     * @param PackCartRepository $cartRepository Repository containing configured cart rows.
-     * @param PackCartSynchronizer $cartSynchronizer Service aligning module rows with native cart rows.
-     * @param PackSnapshotService $snapshotService Service creating immutable order snapshots.
-     * @param PackStockMovementService $stockMovementService Service applying component stock movements.
+     * @param PackCartRepository $cartRepository repository containing configured cart rows
+     * @param PackCartSynchronizer $cartSynchronizer service aligning module rows with native cart rows
+     * @param PackSnapshotService $snapshotService service creating immutable order snapshots
+     * @param PackStockMovementService $stockMovementService service applying component stock movements
      *
      * @return void
      */
@@ -42,8 +56,8 @@ final class PackOrderService
      * rows, then decrements selected component quantities when each operation is
      * logged for the first time.
      *
-     * @param \Order $order Validated PrestaShop order.
-     * @param \Cart $cart Source cart containing configured pack rows.
+     * @param \Order $order validated PrestaShop order
+     * @param \Cart $cart source cart containing configured pack rows
      *
      * @return void
      */

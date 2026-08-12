@@ -1,13 +1,27 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Service;
 
-use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
-
 if (!defined('_PS_VERSION_')) {
     exit;
 }
+
+use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
 
 /**
  * Keeps module cart rows aligned with native PrestaShop cart/customization rows.
@@ -17,7 +31,7 @@ final class PackCartSynchronizer
     private PackCartRepository $cartRepository;
 
     /**
-     * @param PackCartRepository $cartRepository Repository used to read and update module cart rows.
+     * @param PackCartRepository $cartRepository repository used to read and update module cart rows
      *
      * @return void
      */
@@ -29,7 +43,7 @@ final class PackCartSynchronizer
     /**
      * Synchronize every configured pack row for a cart.
      *
-     * @param \Cart $cart Native cart instance.
+     * @param \Cart $cart native cart instance
      *
      * @return void
      */
@@ -87,7 +101,7 @@ final class PackCartSynchronizer
     /**
      * Return native customized cart lines indexed by customization id.
      *
-     * @param \Cart $cart Native cart instance.
+     * @param \Cart $cart native cart instance
      *
      * @return array<int,array<string,mixed>>
      */

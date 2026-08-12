@@ -1,7 +1,23 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
-define('_PS_VERSION_', '8.1.0');
+if (!defined('_PS_VERSION_')) {
+    define('_PS_VERSION_', '8.1.0');
+}
 
 require_once __DIR__ . '/../../src/Model/PackConfiguration.php';
 require_once __DIR__ . '/../../src/Repository/PackStockRepository.php';
@@ -17,13 +33,13 @@ use Dydaps\ConfigurablePacks\Service\PackStockCalculator;
 final class FakePackStockRepository extends PackStockRepository
 {
     /**
-     * @param int $idProduct Product identifier.
-     * @param int $idProductAttribute Combination identifier, unused by the test double.
-     * @param int $idShop Shop identifier, unused by the test double.
+     * @param int $idProduct product identifier
+     * @param int $idProductAttribute combination identifier, unused by the test double
+     * @param int $idShop shop identifier, unused by the test double
      *
-     * @return int Deterministic stock quantity for the requested product.
+     * @return int deterministic stock quantity for the requested product
      *
-     * @inheritDoc
+     * {@inheritDoc}
      */
     public function getAvailableQuantity(int $idProduct, int $idProductAttribute, int $idShop): int
     {

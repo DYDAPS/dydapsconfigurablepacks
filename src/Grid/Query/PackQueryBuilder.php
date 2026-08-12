@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Grid\Query;
@@ -23,10 +37,10 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
     private LegacyContext $legacyContext;
 
     /**
-     * @param Connection $connection Doctrine database connection.
-     * @param string $dbPrefix PrestaShop database table prefix.
-     * @param DoctrineSearchCriteriaApplicatorInterface $searchCriteriaApplicator Applicator for grid sorting and pagination.
-     * @param LegacyContext $legacyContext Legacy PrestaShop context adapter.
+     * @param Connection $connection doctrine database connection
+     * @param string $dbPrefix prestaShop database table prefix
+     * @param DoctrineSearchCriteriaApplicatorInterface $searchCriteriaApplicator applicator for grid sorting and pagination
+     * @param LegacyContext $legacyContext legacy PrestaShop context adapter
      *
      * @return void
      */
@@ -40,9 +54,9 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
     /**
      * Build the paginated search query for grid rows.
      *
-     * @param SearchCriteriaInterface $searchCriteria Grid search criteria.
+     * @param SearchCriteriaInterface $searchCriteria grid search criteria
      *
-     * @return QueryBuilder Query returning displayed grid rows.
+     * @return QueryBuilder query returning displayed grid rows
      */
     public function getSearchQueryBuilder(SearchCriteriaInterface $searchCriteria): QueryBuilder
     {
@@ -50,7 +64,7 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
             ->select('pk.id_pack', '"-" AS image', 'pl.name', 'p.reference', 's.name AS shop_name', 'pk.pack_type', 'COUNT(c.id_component) AS component_count', 'pk.pricing_method', 'pk.fixed_price_tax_excl AS price', 'pk.stock_behavior AS availability', 'pk.active', 'pk.updated_at')
             ->groupBy('pk.id_pack');
         $filters = $searchCriteria->getFilters();
-        $this->applyFilters($qb, is_array($filters) ? $filters : []);
+        $this->applyFilters($qb, $filters);
         $this->searchCriteriaApplicator->applySorting($searchCriteria, $qb)->applyPagination($searchCriteria, $qb);
 
         return $qb;
@@ -59,15 +73,15 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
     /**
      * Build the count query used by grid pagination.
      *
-     * @param SearchCriteriaInterface $searchCriteria Grid search criteria.
+     * @param SearchCriteriaInterface $searchCriteria grid search criteria
      *
-     * @return QueryBuilder Query returning the total matching row count.
+     * @return QueryBuilder query returning the total matching row count
      */
     public function getCountQueryBuilder(SearchCriteriaInterface $searchCriteria): QueryBuilder
     {
         $qb = $this->getBaseQueryBuilder()->select('COUNT(DISTINCT pk.id_pack)');
         $filters = $searchCriteria->getFilters();
-        $this->applyFilters($qb, is_array($filters) ? $filters : []);
+        $this->applyFilters($qb, $filters);
 
         return $qb;
     }
@@ -75,7 +89,7 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
     /**
      * Build the shared base query scoped to non-deleted pack definitions.
      *
-     * @return QueryBuilder Base pack grid query.
+     * @return QueryBuilder base pack grid query
      */
     private function getBaseQueryBuilder(): QueryBuilder
     {
@@ -95,7 +109,7 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
     /**
      * Apply supported grid filters to a query builder.
      *
-     * @param QueryBuilder $qb Query builder to mutate.
+     * @param QueryBuilder $qb query builder to mutate
      * @param array<string, mixed> $filters
      *
      * @return void

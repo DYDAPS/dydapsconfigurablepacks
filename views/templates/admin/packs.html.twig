@@ -14,6 +14,29 @@
         </div>
       </div>
       {% include '@PrestaShop/Admin/Common/Grid/grid_panel.html.twig' with {'grid': grid} %}
+
+      <div class="card mt-3">
+        <h3 class="card-header">
+          {{ 'Settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+        </h3>
+        <div class="card-body">
+          <form method="post" action="{{ path('dydaps_configurable_packs_settings') }}">
+            <input type="hidden" name="_csrf_token" value="{{ settingsCsrfToken }}">
+            <div class="form-group">
+              <label class="form-control-label">
+                <input type="checkbox" name="delete_data_on_uninstall" value="1" {{ deleteDataOnUninstall ? 'checked' : '' }}>
+                {{ 'Delete module data during uninstall'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+              </label>
+              <p class="form-text text-muted">
+                {{ 'When enabled, uninstalling the module permanently removes pack definitions, cart rows, order snapshots, stock logs and refund records.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+              </p>
+            </div>
+            <button class="btn btn-primary" type="submit">
+              {{ 'Save settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 {% endblock %}

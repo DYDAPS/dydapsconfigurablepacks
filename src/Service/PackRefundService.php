@@ -1,16 +1,30 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Service;
+
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
 
 use Dydaps\ConfigurablePacks\Repository\PackOrderRepository;
 use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
 use PrestaShop\PrestaShop\Core\Domain\Order\Command\IssuePartialRefundCommand;
 use PrestaShop\PrestaShop\Core\Domain\Order\VoucherRefundType;
-
-if (!defined('_PS_VERSION_')) {
-    exit;
-}
 
 /**
  * Calculates and records refunds for configured pack order snapshots.
@@ -19,17 +33,20 @@ final class PackRefundService
 {
     private PackOrderRepository $orderRepository;
     private PackStockMovementService $stockMovementService;
+    private \Context $context;
 
     /**
-     * @param PackOrderRepository $orderRepository Repository used to read order snapshots and record refunds.
-     * @param PackStockMovementService $stockMovementService Service used to restore component stock.
+     * @param PackOrderRepository $orderRepository repository used to read order snapshots and record refunds
+     * @param PackStockMovementService $stockMovementService service used to restore component stock
+     * @param \Context $context injected legacy context used to resolve the Symfony container on older shops
      *
      * @return void
      */
-    public function __construct(PackOrderRepository $orderRepository, PackStockMovementService $stockMovementService)
+    public function __construct(PackOrderRepository $orderRepository, PackStockMovementService $stockMovementService, \Context $context)
     {
         $this->orderRepository = $orderRepository;
         $this->stockMovementService = $stockMovementService;
+        $this->context = $context;
     }
 
     /**
@@ -38,15 +55,15 @@ final class PackRefundService
      * The refund amount is proportional to the immutable order snapshot totals,
      * not to current catalog prices.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idPackOrder Configured pack order snapshot identifier.
-     * @param int $idShop Shop identifier used for stock restoration.
-     * @param int $quantity Pack quantity to refund.
-     * @param bool $restoreStock Whether component stock should be restored.
+     * @param int $idOrder order identifier
+     * @param int $idPackOrder configured pack order snapshot identifier
+     * @param int $idShop shop identifier used for stock restoration
+     * @param int $quantity pack quantity to refund
+     * @param bool $restoreStock whether component stock should be restored
      *
-     * @return array{tax_excl: float, tax_incl: float} Refund amounts in the order currency.
+     * @return array{tax_excl: float, tax_incl: float} refund amounts in the order currency
      *
-     * @throws \RuntimeException When the pack order snapshot cannot be found or the requested quantity is no longer refundable.
+     * @throws \RuntimeException when the pack order snapshot cannot be found or the requested quantity is no longer refundable
      */
     public function refundPack(int $idOrder, int $idPackOrder, int $idShop, int $quantity, bool $restoreStock): array
     {
@@ -100,15 +117,15 @@ final class PackRefundService
      * row records the descriptive split while the native partial refund command
      * creates the credit slip and updates PrestaShop order refund state.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idPackOrderComponent Component snapshot identifier.
-     * @param int $quantity Component quantity to refund.
-     * @param bool $restoreStock Whether only this component stock should be restored.
-     * @param bool $generateCreditSlip Whether the native refund must create a credit slip.
+     * @param int $idOrder order identifier
+     * @param int $idPackOrderComponent component snapshot identifier
+     * @param int $quantity component quantity to refund
+     * @param bool $restoreStock whether only this component stock should be restored
+     * @param bool $generateCreditSlip whether the native refund must create a credit slip
      *
-     * @return array{tax_excl: float, tax_incl: float, native_pack_quantity: int} Refund amounts in the order currency.
+     * @return array{tax_excl: float, tax_incl: float, native_pack_quantity: int} refund amounts in the order currency
      *
-     * @throws \RuntimeException When the component is not refundable or the native command bus is unavailable.
+     * @throws \RuntimeException when the component is not refundable or the native command bus is unavailable
      */
     public function refundComponent(int $idOrder, int $idPackOrderComponent, int $quantity, bool $restoreStock, bool $generateCreditSlip): array
     {
@@ -204,13 +221,13 @@ final class PackRefundService
     /**
      * Record a refund emitted by PrestaShop's native order detail workflow.
      *
-     * @param int $idOrderDetail Native order detail identifier.
-     * @param int $quantity Refunded pack quantity.
-     * @param float $amount Amount provided by PrestaShop's native refund hook.
-     * @param bool $restoreStock Whether PrestaShop reinjected stock for this refund.
-     * @param string $action Native cancellation action type.
+     * @param int $idOrderDetail native order detail identifier
+     * @param int $quantity refunded pack quantity
+     * @param float $amount amount provided by PrestaShop's native refund hook
+     * @param bool $restoreStock whether PrestaShop reinjected stock for this refund
+     * @param string $action native cancellation action type
      *
-     * @return bool True when the native refund was recorded for a pack snapshot.
+     * @return bool true when the native refund was recorded for a pack snapshot
      */
     public function recordNativeOrderDetailRefund(int $idOrderDetail, int $quantity, float $amount, bool $restoreStock, string $action): bool
     {
@@ -275,10 +292,10 @@ final class PackRefundService
     /**
      * Calculate the historical refundable component amounts.
      *
-     * @param array<string, mixed> $component Component snapshot row.
-     * @param int $quantity Component quantity to refund.
+     * @param array<string, mixed> $component component snapshot row
+     * @param int $quantity component quantity to refund
      *
-     * @return array{tax_excl: float, tax_incl: float} Monetary amounts in the order currency.
+     * @return array{tax_excl: float, tax_incl: float} monetary amounts in the order currency
      */
     private function calculateComponentRefundAmounts(array $component, int $quantity): array
     {
@@ -294,11 +311,11 @@ final class PackRefundService
     /**
      * Execute PrestaShop's native partial refund command.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idOrderDetail Native pack order detail identifier.
-     * @param int $nativePackQuantity Native pack quantity consumed by the refund.
-     * @param string $amountTaxIncl Historical tax-included amount to refund.
-     * @param bool $generateCreditSlip Whether PrestaShop should create a credit slip.
+     * @param int $idOrder order identifier
+     * @param int $idOrderDetail native pack order detail identifier
+     * @param int $nativePackQuantity native pack quantity consumed by the refund
+     * @param string $amountTaxIncl historical tax-included amount to refund
+     * @param bool $generateCreditSlip whether PrestaShop should create a credit slip
      *
      * @return void
      */
@@ -310,7 +327,7 @@ final class PackRefundService
 
         $container = SymfonyContainer::getInstance();
         if (!$container || !$container->has('prestashop.core.command_bus')) {
-            $context = class_exists('\Context') ? \Context::getContext() : null;
+            $context = class_exists('\Context') ? $this->context : null;
             $container = $context && isset($context->container) ? $context->container : null;
         }
         if (!$container || !$container->has('prestashop.core.command_bus')) {

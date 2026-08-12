@@ -81,6 +81,11 @@
       <trans-unit id="no_matching_products"><source>No matching products found.</source><target>Aucun produit correspondant trouvé.</target></trans-unit>
       <trans-unit id="move_up"><source>Move up</source><target>Monter</target></trans-unit>
       <trans-unit id="move_down"><source>Move down</source><target>Descendre</target></trans-unit>
+      <trans-unit id="settings"><source>Settings</source><target>Parametres</target></trans-unit>
+      <trans-unit id="delete_data_on_uninstall"><source>Delete module data during uninstall</source><target>Supprimer les donnees du module lors de la desinstallation</target></trans-unit>
+      <trans-unit id="delete_data_on_uninstall_help"><source>When enabled, uninstalling the module permanently removes pack definitions, cart rows, order snapshots, stock logs and refund records.</source><target>Lorsque cette option est activee, la desinstallation du module supprime definitivement les definitions de packs, les lignes panier, les snapshots de commande, les journaux de stock et les remboursements.</target></trans-unit>
+      <trans-unit id="save_settings"><source>Save settings</source><target>Enregistrer les parametres</target></trans-unit>
+      <trans-unit id="settings_updated"><source>Settings updated.</source><target>Parametres enregistres.</target></trans-unit>
       <trans-unit id="add_component_error"><source>Add at least one pack component.</source><target>Ajoutez au moins un composant au pack.</target></trans-unit>
       <trans-unit id="invalid_component_error"><source>A pack component is invalid.</source><target>Un composant du pack est invalide.</target></trans-unit>
       <trans-unit id="component_name_error"><source>Each pack component needs a name.</source><target>Chaque composant du pack doit avoir un nom.</target></trans-unit>

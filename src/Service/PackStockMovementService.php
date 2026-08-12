@@ -1,15 +1,29 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Service;
 
-use Dydaps\ConfigurablePacks\Repository\PackOrderRepository;
-use Dydaps\ConfigurablePacks\Repository\PackRepository;
-use Dydaps\ConfigurablePacks\Repository\PackStockRepository;
-
 if (!defined('_PS_VERSION_')) {
     exit;
 }
+
+use Dydaps\ConfigurablePacks\Repository\PackOrderRepository;
+use Dydaps\ConfigurablePacks\Repository\PackRepository;
+use Dydaps\ConfigurablePacks\Repository\PackStockRepository;
 
 /**
  * Applies stock movements for configured pack components.
@@ -24,9 +38,9 @@ final class PackStockMovementService
     private PackStockRepository $stockRepository;
 
     /**
-     * @param PackOrderRepository $orderRepository Repository used to load component snapshots.
-     * @param PackRepository $packRepository Repository used to read stock behavior.
-     * @param PackStockRepository $stockRepository Repository used to log and apply stock movements.
+     * @param PackOrderRepository $orderRepository repository used to load component snapshots
+     * @param PackRepository $packRepository repository used to read stock behavior
+     * @param PackStockRepository $stockRepository repository used to log and apply stock movements
      *
      * @return void
      */
@@ -43,9 +57,9 @@ final class PackStockMovementService
      * Side effects: inserts stock operation log rows and decreases PrestaShop
      * available stock only when a log row is newly created.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idPackOrder Configured pack order snapshot identifier.
-     * @param int $idShop Shop identifier used for stock update.
+     * @param int $idOrder order identifier
+     * @param int $idPackOrder configured pack order snapshot identifier
+     * @param int $idShop shop identifier used for stock update
      *
      * @return void
      */
@@ -75,9 +89,9 @@ final class PackStockMovementService
     /**
      * Restore component stock for a whole or partial pack quantity.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idPackOrder Configured pack order snapshot identifier.
-     * @param int $idShop Shop identifier used for stock update.
+     * @param int $idOrder order identifier
+     * @param int $idPackOrder configured pack order snapshot identifier
+     * @param int $idShop shop identifier used for stock update
      * @param int $packQuantity Pack quantity to restore. When zero, restores the full quantity_total stored in snapshots.
      *
      * @return void
@@ -108,12 +122,12 @@ final class PackStockMovementService
     /**
      * Restore stock for one historical component snapshot.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idPackOrder Configured pack order snapshot identifier.
-     * @param int $idPackOrderComponent Configured pack component snapshot identifier.
-     * @param int $idShop Shop identifier used for stock update.
-     * @param int $componentQuantity Component quantity to restore.
-     * @param string $operationScope Idempotency scope linked to the refund operation.
+     * @param int $idOrder order identifier
+     * @param int $idPackOrder configured pack order snapshot identifier
+     * @param int $idPackOrderComponent configured pack component snapshot identifier
+     * @param int $idShop shop identifier used for stock update
+     * @param int $componentQuantity component quantity to restore
+     * @param string $operationScope idempotency scope linked to the refund operation
      *
      * @return void
      */
@@ -146,9 +160,9 @@ final class PackStockMovementService
     /**
      * Restore the native container stock after PrestaShop decremented it on order validation.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idPackOrder Configured pack order snapshot identifier.
-     * @param int $idShop Shop identifier used for stock update.
+     * @param int $idOrder order identifier
+     * @param int $idPackOrder configured pack order snapshot identifier
+     * @param int $idShop shop identifier used for stock update
      *
      * @return void
      */
@@ -182,9 +196,9 @@ final class PackStockMovementService
     /**
      * Neutralize PrestaShop's native container restock when components own stock.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idPackOrder Configured pack order snapshot identifier.
-     * @param int $idShop Shop identifier used for stock update.
+     * @param int $idOrder order identifier
+     * @param int $idPackOrder configured pack order snapshot identifier
+     * @param int $idShop shop identifier used for stock update
      *
      * @return void
      */
@@ -218,11 +232,11 @@ final class PackStockMovementService
     /**
      * Neutralize a native container restock for a partial refund quantity.
      *
-     * @param int $idOrder Order identifier.
-     * @param int $idPackOrder Configured pack order snapshot identifier.
-     * @param int $idShop Shop identifier used for stock update.
-     * @param int $packQuantity Native pack quantity reinjected by PrestaShop.
-     * @param string $operationScope Idempotency scope linked to the native refund operation.
+     * @param int $idOrder order identifier
+     * @param int $idPackOrder configured pack order snapshot identifier
+     * @param int $idShop shop identifier used for stock update
+     * @param int $packQuantity native pack quantity reinjected by PrestaShop
+     * @param string $operationScope idempotency scope linked to the native refund operation
      *
      * @return void
      */
@@ -255,9 +269,9 @@ final class PackStockMovementService
     /**
      * Check whether component stock movements are enabled for the pack.
      *
-     * @param int $idPackOrder Configured pack order snapshot identifier.
+     * @param int $idPackOrder configured pack order snapshot identifier
      *
-     * @return bool True when the pack behavior is "components".
+     * @return bool true when the pack behavior is "components"
      */
     private function shouldMoveComponentStock(int $idPackOrder): bool
     {

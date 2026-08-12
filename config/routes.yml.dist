@@ -16,6 +16,15 @@ dydaps_configurable_packs_search:
     _legacy_controller: AdminDydapsConfigurablePacks
     _legacy_link: AdminDydapsConfigurablePacks
 
+dydaps_configurable_packs_settings:
+  path: /dydaps/configurable-packs/settings
+  methods: [POST]
+  defaults:
+    _controller: dydaps.configurable_packs.controller.admin.pack::settings
+    _admin_route: true
+    _legacy_controller: AdminDydapsConfigurablePacks
+    _legacy_link: AdminDydapsConfigurablePacks
+
 dydaps_configurable_packs_create:
   path: /dydaps/configurable-packs/create
   methods: [GET, POST]

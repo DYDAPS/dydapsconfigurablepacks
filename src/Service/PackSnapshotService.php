@@ -1,16 +1,30 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Service;
+
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
 
 use Dydaps\ConfigurablePacks\Model\PackConfiguration;
 use Dydaps\ConfigurablePacks\Repository\PackOrderRepository;
 use Dydaps\ConfigurablePacks\Repository\PackRepository;
 use Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator;
-
-if (!defined('_PS_VERSION_')) {
-    exit;
-}
 
 /**
  * Creates immutable order snapshots for configured packs.
@@ -27,10 +41,10 @@ final class PackSnapshotService
     private PackConfigurationValidator $validator;
 
     /**
-     * @param PackRepository $packRepository Repository used to reload the pack definition.
-     * @param PackOrderRepository $orderRepository Repository used to persist snapshots.
-     * @param PackPriceCalculator $priceCalculator Calculator used to snapshot current prices.
-     * @param PackConfigurationValidator $validator Validator used to rebuild stored configurations safely.
+     * @param PackRepository $packRepository repository used to reload the pack definition
+     * @param PackOrderRepository $orderRepository repository used to persist snapshots
+     * @param PackPriceCalculator $priceCalculator calculator used to snapshot current prices
+     * @param PackConfigurationValidator $validator validator used to rebuild stored configurations safely
      *
      * @return void
      */
@@ -45,16 +59,19 @@ final class PackSnapshotService
     /**
      * Persist one pack order snapshot and its component snapshot rows.
      *
-     * @param \Order $order Validated order receiving the snapshot.
-     * @param \Cart $cart Source cart for the configured pack.
+     * @param \Order $order validated order receiving the snapshot
+     * @param \Cart $cart source cart for the configured pack
      * @param array{
      *     configuration_hash: string,
-     *     configuration_json: string
-     * }&array<string, mixed> $cartConfiguration Row loaded from dydaps_pack_cart.
+     *     configuration_json: string,
+     *     quantity?: int,
+     *     id_customization?: int,
+     *     id_product_attribute?: int
+     * }&array<string, mixed> $cartConfiguration Row loaded from dydaps_pack_cart
      *
-     * @return int Created dydaps_pack_order identifier.
+     * @return int created dydaps_pack_order identifier
      *
-     * @throws \RuntimeException When the stored cart JSON is invalid or the pack definition no longer exists.
+     * @throws \RuntimeException when the stored cart JSON is invalid or the pack definition no longer exists
      */
     public function createOrderSnapshot(\Order $order, \Cart $cart, array $cartConfiguration): int
     {
@@ -120,8 +137,8 @@ final class PackSnapshotService
             $component['allocated_discount_tax_incl'] = (float) ($component['allocated_discount_tax_incl'] ?? 0) * $packQuantity;
             // Refundable amounts are stored after discount allocation so later
             // partial refunds can reproduce the original tax/discount split.
-            $component['refundable_tax_excl'] = max(0.0, (float) $component['total_tax_excl'] * $packQuantity - (float) ($component['allocated_discount_tax_excl'] ?? 0));
-            $component['refundable_tax_incl'] = max(0.0, (float) $component['total_tax_incl'] * $packQuantity - (float) ($component['allocated_discount_tax_incl'] ?? 0));
+            $component['refundable_tax_excl'] = max(0.0, (float) $component['total_tax_excl'] * $packQuantity - (float) $component['allocated_discount_tax_excl']);
+            $component['refundable_tax_incl'] = max(0.0, (float) $component['total_tax_incl'] * $packQuantity - (float) $component['allocated_discount_tax_incl']);
             $this->orderRepository->createComponentSnapshot($idPackOrder, $component);
         }
 
@@ -131,14 +148,14 @@ final class PackSnapshotService
     /**
      * Find the native order_detail generated from the configured cart line.
      *
-     * @param \Order $order Validated order.
-     * @param int $idProduct Pack product identifier.
-     * @param int $idProductAttribute Pack product attribute identifier.
-     * @param int $idCustomization Native customization identifier.
+     * @param \Order $order validated order
+     * @param int $idProduct pack product identifier
+     * @param int $idProductAttribute pack product attribute identifier
+     * @param int $idCustomization native customization identifier
      *
-     * @return int Native order_detail identifier.
+     * @return int native order_detail identifier
      *
-     * @throws \RuntimeException When the native order detail cannot be resolved.
+     * @throws \RuntimeException when the native order detail cannot be resolved
      */
     private function findOrderDetailId(\Order $order, \Cart $cart, int $idProduct, int $idProductAttribute, int $idCustomization, string $configurationHash): int
     {

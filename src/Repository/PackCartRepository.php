@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Repository;
@@ -18,19 +32,19 @@ final class PackCartRepository
      * The unique cart/product/hash key lets a cart contain multiple different
      * configurations of the same pack product without overwriting each other.
      *
-     * @param int $idCart Cart identifier.
-     * @param int $idProduct Native PrestaShop product sold as the pack.
-     * @param int $idProductAttribute Pack product combination identifier, usually zero.
-     * @param int $idCustomization Native PrestaShop customization identifier used to split cart rows.
-     * @param string $hash Stable configuration hash.
-     * @param int $quantity Absolute pack quantity to store for the native cart line.
-     * @param array<string, mixed> $configuration Serializable pack configuration snapshot.
+     * @param int $idCart cart identifier
+     * @param int $idProduct native PrestaShop product sold as the pack
+     * @param int $idProductAttribute pack product combination identifier, usually zero
+     * @param int $idCustomization native PrestaShop customization identifier used to split cart rows
+     * @param string $hash stable configuration hash
+     * @param int $quantity absolute pack quantity to store for the native cart line
+     * @param array<string, mixed> $configuration serializable pack configuration snapshot
      * @param array{
      *     unit_tax_excl?: float,
      *     unit_tax_incl?: float
-     * } $price Unit price snapshot in the cart currency.
+     * } $price Unit price snapshot in the cart currency
      *
-     * @return bool True when the row is inserted or updated.
+     * @return bool true when the row is inserted or updated
      */
     public function saveConfiguration(int $idCart, int $idProduct, int $idProductAttribute, int $idCustomization, string $hash, int $quantity, array $configuration, array $price): bool
     {
@@ -77,7 +91,7 @@ final class PackCartRepository
     /**
      * Return all configured pack rows for a cart.
      *
-     * @param int $idCart Cart identifier.
+     * @param int $idCart cart identifier
      *
      * @return list<array<string, mixed>>
      */
@@ -89,10 +103,10 @@ final class PackCartRepository
     /**
      * Return one stored pack configuration by native customization id.
      *
-     * @param int $idCart Cart identifier.
-     * @param int $idCustomization Native customization identifier.
+     * @param int $idCart cart identifier
+     * @param int $idCustomization native customization identifier
      *
-     * @return array<string, mixed>|null Stored module cart row.
+     * @return array<string, mixed>|null stored module cart row
      */
     public function getCartConfigurationByCustomization(int $idCart, int $idCustomization): ?array
     {
@@ -107,11 +121,11 @@ final class PackCartRepository
     /**
      * Update the synchronized module quantity for one native customization.
      *
-     * @param int $idCart Cart identifier.
-     * @param int $idCustomization Native customization identifier.
-     * @param int $quantity Native cart line quantity.
+     * @param int $idCart cart identifier
+     * @param int $idCustomization native customization identifier
+     * @param int $quantity native cart line quantity
      *
-     * @return bool True when the row is updated.
+     * @return bool true when the row is updated
      */
     public function updateQuantityByCustomization(int $idCart, int $idCustomization, int $quantity): bool
     {
@@ -128,10 +142,10 @@ final class PackCartRepository
     /**
      * Delete one stored configuration by native customization id.
      *
-     * @param int $idCart Cart identifier.
-     * @param int $idCustomization Native customization identifier.
+     * @param int $idCart cart identifier
+     * @param int $idCustomization native customization identifier
      *
-     * @return bool True when the delete query succeeds.
+     * @return bool true when the delete query succeeds
      */
     public function deleteByCustomization(int $idCart, int $idCustomization): bool
     {
@@ -144,9 +158,9 @@ final class PackCartRepository
     /**
      * Delete every stored configuration for a cart.
      *
-     * @param int $idCart Cart identifier.
+     * @param int $idCart cart identifier
      *
-     * @return bool True when the delete query succeeds.
+     * @return bool true when the delete query succeeds
      */
     public function deleteByCart(int $idCart): bool
     {
@@ -156,12 +170,12 @@ final class PackCartRepository
     /**
      * Delete a native cart line by customization without invoking cart hooks.
      *
-     * @param int $idCart Cart identifier.
-     * @param int $idProduct Pack product identifier.
-     * @param int $idProductAttribute Pack product attribute identifier.
-     * @param int $idCustomization Native customization identifier.
+     * @param int $idCart cart identifier
+     * @param int $idProduct pack product identifier
+     * @param int $idProductAttribute pack product attribute identifier
+     * @param int $idCustomization native customization identifier
      *
-     * @return bool True when the delete query succeeds.
+     * @return bool true when the delete query succeeds
      */
     public function deleteNativeCartLine(int $idCart, int $idProduct, int $idProductAttribute, int $idCustomization): bool
     {
@@ -181,12 +195,12 @@ final class PackCartRepository
     /**
      * Remove every row created for a failed native cart add.
      *
-     * @param int $idCart Cart identifier.
-     * @param int $idProduct Pack product identifier.
-     * @param int $idProductAttribute Pack product attribute identifier.
-     * @param int $idCustomization Native customization identifier.
+     * @param int $idCart cart identifier
+     * @param int $idProduct pack product identifier
+     * @param int $idProductAttribute pack product attribute identifier
+     * @param int $idCustomization native customization identifier
      *
-     * @return bool True when all cleanup queries succeed.
+     * @return bool true when all cleanup queries succeed
      */
     public function rollbackNativeAdd(int $idCart, int $idProduct, int $idProductAttribute, int $idCustomization): bool
     {
@@ -198,9 +212,9 @@ final class PackCartRepository
     /**
      * Delete a native customization row created only to split pack cart lines.
      *
-     * @param int $idCustomization Native customization identifier.
+     * @param int $idCustomization native customization identifier
      *
-     * @return bool True when the delete query succeeds.
+     * @return bool true when the delete query succeeds
      */
     public function deleteNativeCustomization(int $idCustomization): bool
     {
@@ -215,12 +229,12 @@ final class PackCartRepository
     /**
      * Return a stored row by cart/product/hash.
      *
-     * @param int $idCart Cart identifier.
-     * @param int $idProduct Pack product identifier.
-     * @param int $idProductAttribute Pack product attribute identifier.
-     * @param string $hash Configuration hash.
+     * @param int $idCart cart identifier
+     * @param int $idProduct pack product identifier
+     * @param int $idProductAttribute pack product attribute identifier
+     * @param string $hash configuration hash
      *
-     * @return array<string, mixed>|null Stored module cart row.
+     * @return array<string, mixed>|null stored module cart row
      */
     public function getCartConfigurationByHash(int $idCart, int $idProduct, int $idProductAttribute, string $hash): ?array
     {

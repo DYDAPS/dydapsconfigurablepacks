@@ -1,3 +1,17 @@
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 (function () {
   'use strict';
 
@@ -24,6 +38,7 @@
     document.querySelectorAll('[data-id-product][data-ajax-url]').forEach(function (root) {
       var url = root.getAttribute('data-ajax-url');
       var idProduct = root.getAttribute('data-id-product');
+      var csrfToken = root.getAttribute('data-csrf-token') || '';
       var body = root.querySelector('[data-pack-components]');
       var message = root.querySelector('[data-pack-message]');
       var summary = root.querySelector('[data-pack-summary]');
@@ -109,7 +124,7 @@
               : 1
           });
         });
-        request(url, {action: 'add', id_product: idProduct, quantity: 1, configuration: JSON.stringify({components: components})}).then(function (payload) {
+        request(url, {action: 'add', id_product: idProduct, quantity: 1, configuration: JSON.stringify({components: components}), csrf_token: csrfToken}).then(function (payload) {
           message.textContent = payload.ok ? '' : (payload.error || '');
           if (payload.ok) {
             window.location.reload();

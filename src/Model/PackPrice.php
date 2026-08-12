@@ -1,4 +1,18 @@
 <?php
+/**
+ * 2007-2026 PrestaShop SA and Contributors
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Open Software License (OSL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * https://opensource.org/licenses/OSL-3.0
+ *
+ * @author    DYDAPS
+ * @copyright 2007-2026 PrestaShop SA and Contributors
+ * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
+ */
 declare(strict_types=1);
 
 namespace Dydaps\ConfigurablePacks\Model;
@@ -44,10 +58,10 @@ final class PackPrice
     public array $allocations;
 
     /**
-     * @param float $unitTaxExcl Unit pack price excluding tax.
-     * @param float $unitTaxIncl Unit pack price including tax.
-     * @param int $quantity Requested pack quantity.
-     * @param list<array<string, mixed>> $allocations Component allocation rows used for snapshots and refunds.
+     * @param float $unitTaxExcl unit pack price excluding tax
+     * @param float $unitTaxIncl unit pack price including tax
+     * @param int $quantity requested pack quantity
+     * @param list<array<string, mixed>> $allocations component allocation rows used for snapshots and refunds
      *
      * @return void
      */
