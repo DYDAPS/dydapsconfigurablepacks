@@ -14,9 +14,15 @@
     },
     "require-dev": {
         "prestashop/php-dev-tools": "^5.0",
-        "friendsofphp/php-cs-fixer": "^3.94"
+        "friendsofphp/php-cs-fixer": "^3.94",
+        "phpunit/phpunit": "^9.6"
     },
     "config": {
         "prepend-autoloader": false
+    },
+    "scripts": {
+        "test": "phpunit tests/Unit",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix"
     }
 }

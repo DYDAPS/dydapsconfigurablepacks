@@ -18,5 +18,4 @@ views/images/**/*.webp
 **.DS_Store
 .DS_Store
 views/.DS_Store
-.php-cs-fixer.dist.php
 .php-cs-fixer.cache
