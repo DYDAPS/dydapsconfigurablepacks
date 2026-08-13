@@ -2,7 +2,7 @@
 {% import '@Modules/dydapsconfigurablepacks/views/templates/admin/_form_macros.html.twig' as dydapsForms %}
 
 {% block content %}
-  {% include '@Modules/dydapsconfigurablepacks/views/templates/admin/_tabs.html.twig' with {'active': active} %}
+  {% include '@Modules/dydapsconfigurablepacks/views/templates/admin/_tabs.html.twig' with {'active': active, 'permissions': permissions} %}
 
   <div class="card">
     <h3 class="card-header">
@@ -10,14 +10,65 @@
     </h3>
     <div class="card-body">
       {{ form_start(form) }}
-      {{ dydapsForms.form_group(form.id_product, canUpdate) }}
-      {{ dydapsForms.form_group(form.active, canUpdate) }}
+
+      <h4>{{ 'Product'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+      {{ dydapsForms.form_group(form.product_name, canUpdate) }}
+      {{ dydapsForms.form_group(form.product_summary, canUpdate) }}
+      {{ dydapsForms.form_group(form.product_description, canUpdate) }}
+
+      <h4>{{ 'Catalog'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+      {{ dydapsForms.form_group(form.reference, canUpdate) }}
+      {{ dydapsForms.form_group(form.link_rewrite, canUpdate) }}
+      {{ dydapsForms.form_group(form.categories, canUpdate) }}
+      {{ dydapsForms.form_group(form.default_category, canUpdate) }}
+      {{ dydapsForms.form_group(form.accessories, canUpdate) }}
+      <div class="row">
+        <div class="col-md-3">{{ dydapsForms.form_group(form.width, canUpdate) }}</div>
+        <div class="col-md-3">{{ dydapsForms.form_group(form.height, canUpdate) }}</div>
+        <div class="col-md-3">{{ dydapsForms.form_group(form.depth, canUpdate) }}</div>
+        <div class="col-md-3">{{ dydapsForms.form_group(form.weight, canUpdate) }}</div>
+      </div>
+      {{ dydapsForms.form_group(form.delivery_time, canUpdate) }}
+
+      <h4>{{ 'Pricing'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+      <div class="form-group">
+        <div class="form-label">
+          {{ form_label(form.price_tax_excl) }}
+        </div>
+        <div class="form-field">
+          <div class="input-group">
+            {{ form_widget(form.price_tax_excl, canUpdate ? {} : { attr: { disabled: 'disabled' } }) }}
+            <span class="input-group-append">
+              <span class="input-group-text" id="dydaps-ttc-preview">0.00</span>
+            </span>
+          </div>
+          {{ form_errors(form.price_tax_excl) }}
+          <small class="form-text text-muted">
+            {{ 'Price including tax is computed from the selected tax rules.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+          </small>
+        </div>
+      </div>
+      {{ dydapsForms.form_group(form.tax_rules_group, canUpdate) }}
+
+      <h4>{{ 'Search engine optimization'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+      {{ dydapsForms.form_group(form.meta_title, canUpdate) }}
+      {{ dydapsForms.form_group(form.meta_description, canUpdate) }}
+
+      <h4>{{ 'Pack settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
       {{ dydapsForms.form_group(form.pack_type, canUpdate) }}
       {{ dydapsForms.form_group(form.pricing_method, canUpdate) }}
-      {{ dydapsForms.form_group(form.fixed_price_tax_excl, canUpdate) }}
-      {{ dydapsForms.form_group(form.forced_price_tax_excl, canUpdate) }}
-      {{ dydapsForms.form_group(form.global_discount_percent, canUpdate) }}
-      {{ dydapsForms.form_group(form.global_discount_amount_tax_excl, canUpdate) }}
+
+      {% for pricing in [
+        { 'field': form.fixed_price_tax_excl, 'method': 'fixed' },
+        { 'field': form.forced_price_tax_excl, 'method': 'forced' },
+        { 'field': form.global_discount_percent, 'method': 'percent_discount' },
+        { 'field': form.global_discount_amount_tax_excl, 'method': 'fixed_discount' }
+      ] %}
+        <div data-pricing-field-wrapper="{{ pricing.method }}">
+          {{ dydapsForms.form_group(pricing.field, canUpdate) }}
+        </div>
+      {% endfor %}
+
       {{ dydapsForms.form_group(form.stock_behavior, canUpdate) }}
       {{ form_widget(form.components_json) }}
 
@@ -27,23 +78,13 @@
         data-products-url="{{ path('dydaps_configurable_packs_product_search') }}"
         data-can-update="{{ canUpdate ? '1' : '0' }}"
         data-label-component="{{ 'Component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-add-component="{{ 'Add component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-search-product="{{ 'Search product or reference'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-add-product="{{ 'Add product'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-remove="{{ 'Remove'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-default="{{ 'Default'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-required="{{ 'Required'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-optional="{{ 'Optional'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-name="{{ 'Component name'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-quantity="{{ 'Quantity'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-min="{{ 'Minimum'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-max="{{ 'Maximum'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-pricing="{{ 'Pricing behavior'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-native="{{ 'Native price'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-fixed="{{ 'Fixed price tax excluded'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-discount="{{ 'Discount percent'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-surcharge="{{ 'Surcharge tax excluded'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-no-products="{{ 'No products selected yet.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+        data-label-no-products="{{ 'No product selected yet.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-no-results="{{ 'No matching products found.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-up="{{ 'Move up'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
         data-label-down="{{ 'Move down'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
@@ -55,7 +96,7 @@
           </button>
         </div>
         <p class="text-muted">
-          {{ 'Choose the products and combinations available for each configurable pack component.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+          {{ 'Choose one product per pack component and its quantity.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
         </p>
         <div data-pack-builder-components></div>
       </div>
@@ -71,6 +112,48 @@
       {{ form_end(form) }}
     </div>
   </div>
+
+  <script>
+    (function () {
+      var taxRates = {{ taxRates|json_encode|raw }};
+      var form = document.querySelector('form[name="pack_general"]');
+      if (!form) {
+        return;
+      }
+
+      var pricing = form.querySelector('[name="pack_general[pricing_method]"]');
+      var wrappers = Array.prototype.slice.call(form.querySelectorAll('[data-pricing-field-wrapper]'));
+      function applyPricing() {
+        var selected = pricing ? pricing.value : '';
+        wrappers.forEach(function (wrapper) {
+          wrapper.style.display = wrapper.getAttribute('data-pricing-field-wrapper') === selected ? '' : 'none';
+        });
+      }
+      if (pricing) {
+        pricing.addEventListener('change', applyPricing);
+      }
+      applyPricing();
+
+      var priceInput = form.querySelector('[name="pack_general[price_tax_excl]"]');
+      var taxSelect = form.querySelector('[name="pack_general[tax_rules_group]"]');
+      var preview = document.getElementById('dydaps-ttc-preview');
+      function applyTtc() {
+        if (!priceInput || !taxSelect || !preview) {
+          return;
+        }
+        var price = parseFloat(priceInput.value) || 0;
+        var rate = parseFloat(taxRates[taxSelect.value]) || 0;
+        preview.textContent = (price * (1 + rate / 100)).toFixed(2);
+      }
+      if (priceInput) {
+        priceInput.addEventListener('input', applyTtc);
+      }
+      if (taxSelect) {
+        taxSelect.addEventListener('change', applyTtc);
+      }
+      applyTtc();
+    }());
+  </script>
 {% endblock %}
 
 {% block stylesheets %}

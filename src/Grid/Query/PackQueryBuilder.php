@@ -61,7 +61,7 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
     public function getSearchQueryBuilder(SearchCriteriaInterface $searchCriteria): QueryBuilder
     {
         $qb = $this->getBaseQueryBuilder()
-            ->select('pk.id_pack', '"-" AS image', 'pl.name', 'p.reference', 's.name AS shop_name', 'pk.pack_type', 'COUNT(c.id_component) AS component_count', 'pk.pricing_method', 'pk.fixed_price_tax_excl AS price', 'pk.stock_behavior AS availability', 'pk.active', 'pk.updated_at')
+            ->select('pk.id_pack', '"-" AS image', 'pl.name', 'p.reference', 's.name AS shop_name', 'pk.pack_type', 'COUNT(c.id_component) AS component_count', 'pk.pricing_method', 'ps.price AS price', 'pk.stock_behavior AS availability', 'pk.active', 'pk.updated_at')
             ->groupBy('pk.id_pack');
         $filters = $searchCriteria->getFilters();
         $this->applyFilters($qb, $filters);
@@ -99,6 +99,7 @@ final class PackQueryBuilder extends AbstractDoctrineQueryBuilder
         return $this->connection->createQueryBuilder()
             ->from($this->dbPrefix . 'dydaps_pack', 'pk')
             ->leftJoin('pk', $this->dbPrefix . 'product', 'p', 'p.id_product = pk.id_product')
+            ->leftJoin('pk', $this->dbPrefix . 'product_shop', 'ps', 'ps.id_product = pk.id_product AND ps.id_shop = pk.id_shop')
             ->leftJoin('pk', $this->dbPrefix . 'product_lang', 'pl', 'pl.id_product = pk.id_product AND pl.id_lang = :id_lang AND pl.id_shop = pk.id_shop')
             ->leftJoin('pk', $this->dbPrefix . 'shop', 's', 's.id_shop = pk.id_shop')
             ->leftJoin('pk', $this->dbPrefix . 'dydaps_pack_component', 'c', 'c.id_pack = pk.id_pack')

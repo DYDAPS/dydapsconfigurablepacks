@@ -63,6 +63,23 @@ trait AdminPermissionsTrait
     }
 
     /**
+     * Return the current employee's permissions for the module legacy controller.
+     *
+     * @param Request $request current admin request
+     *
+     * @return array<string, bool> permission flags for read, create, update and delete
+     */
+    protected function getAdminPermissions(Request $request): array
+    {
+        return [
+            'read' => $this->can($request, 'read'),
+            'create' => $this->can($request, 'create'),
+            'update' => $this->can($request, 'update'),
+            'delete' => $this->can($request, 'delete'),
+        ];
+    }
+
+    /**
      * Return the legacy controller used for PrestaShop ACL checks.
      *
      * @param Request $request current admin request

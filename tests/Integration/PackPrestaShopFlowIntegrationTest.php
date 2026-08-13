@@ -184,7 +184,6 @@ final class PackPrestaShopFlowIntegrationTest
     /**
      * @return array{
      *     id_pack: int,
-     *     id_component: int,
      *     id_pack_product: int,
      *     id_product_m: int,
      *     id_product_xl: int
@@ -205,29 +204,32 @@ final class PackPrestaShopFlowIntegrationTest
             'pricing_method' => PackConfig::PRICING_COMPONENT_SUM,
             'stock_behavior' => $stockBehavior,
         ]);
-        $this->packRepository->replaceComponents($idPack, [[
-            'name' => 'Size',
-            'component_type' => 'choice',
-            'optional' => 0,
-            'quantity' => 1,
-            'min_quantity' => 1,
-            'max_quantity' => 1,
-            'pricing_behavior' => 'native',
-            'products' => [
-                ['id_product' => $idProductM, 'id_product_attribute' => 0, 'is_default' => 1],
-                ['id_product' => $idProductXl, 'id_product_attribute' => 0, 'is_default' => 0],
+        $this->packRepository->replaceComponents($idPack, [
+            [
+                'name' => 'Size M',
+                'component_type' => 'choice',
+                'optional' => 1,
+                'quantity' => 1,
+                'id_product' => $idProductM,
+                'position' => 0,
             ],
-        ]], $this->idLang);
+            [
+                'name' => 'Size XL',
+                'component_type' => 'choice',
+                'optional' => 1,
+                'quantity' => 1,
+                'id_product' => $idProductXl,
+                'position' => 1,
+            ],
+        ], $this->idLang);
 
         $components = $this->packRepository->getComponents($idPack, $this->idLang);
-        $idComponent = (int) ($components[0]['id_component'] ?? 0);
-        if ($idComponent <= 0) {
-            throw new RuntimeException('Unable to create integration pack component.');
+        if (count($components) !== 2) {
+            throw new RuntimeException('Unable to create integration pack components.');
         }
 
         return [
             'id_pack' => $idPack,
-            'id_component' => $idComponent,
             'id_pack_product' => $idPackProduct,
             'id_product_m' => $idProductM,
             'id_product_xl' => $idProductXl,
@@ -568,16 +570,11 @@ final class PackPrestaShopFlowIntegrationTest
         $product->price = 999;
         $product->update();
         $this->packRepository->replaceComponents($fixture['id_pack'], [[
+            'id_product' => $fixture['id_product_xl'],
             'name' => 'Mutated component',
             'component_type' => 'choice',
-            'optional' => 0,
+            'optional' => 1,
             'quantity' => 1,
-            'min_quantity' => 1,
-            'max_quantity' => 1,
-            'pricing_behavior' => 'native',
-            'products' => [
-                ['id_product' => $fixture['id_product_xl'], 'id_product_attribute' => 0, 'is_default' => 1],
-            ],
         ]], $this->idLang);
 
         $componentsAfter = Db::getInstance()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'dydaps_pack_order_component` WHERE id_pack_order = ' . (int) $snapshot['id_pack_order']);
@@ -599,12 +596,22 @@ final class PackPrestaShopFlowIntegrationTest
             throw new RuntimeException('Fixture pack has no components: ' . json_encode($fixture));
         }
 
-        $this->cartService->addConfiguredPack($cart, new PackConfiguration($fixture['id_pack_product'], [[
-            'id_component' => $fixture['id_component'],
-            'id_product' => $idProduct,
-            'id_product_attribute' => 0,
-            'quantity' => 1,
-        ]]), $this->idShop, $this->idLang, $this->idCurrency, $this->idCustomer);
+        $configuration = [];
+        foreach ($components as $component) {
+            $selections = $this->packRepository->getAllowedSelections((int) $component['id_component']);
+            $selection = $selections[0] ?? null;
+            if (!$selection || (int) $selection['id_product'] !== $idProduct) {
+                continue;
+            }
+            $configuration[] = [
+                'id_component' => (int) $component['id_component'],
+                'id_product' => (int) $selection['id_product'],
+                'id_product_attribute' => (int) $selection['id_product_attribute'],
+                'quantity' => (int) ($component['quantity'] ?? 1),
+            ];
+        }
+
+        $this->cartService->addConfiguredPack($cart, new PackConfiguration($fixture['id_pack_product'], $configuration), $this->idShop, $this->idLang, $this->idCurrency, $this->idCustomer);
     }
 
     /**

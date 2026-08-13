@@ -27,11 +27,6 @@ if (!defined('_PS_VERSION_')) {
 final class PackConfig
 {
     /**
-     * Boolean configuration flag controlling whether uninstall removes module data.
-     */
-    public const KEY_DELETE_DATA = 'DYDAPS_CONFIGURABLE_PACKS_DELETE_DATA';
-
-    /**
      * Pricing strategy where the pack uses a configured tax-excluded fixed price.
      */
     public const PRICING_FIXED = 'fixed';

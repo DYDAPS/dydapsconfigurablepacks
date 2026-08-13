@@ -132,9 +132,9 @@ final class PackRepository
     /**
      * Persist the full component composition submitted from the admin form.
      *
-     * Existing editable rows are replaced atomically for the pack. The payload
-     * shape intentionally mirrors the component tables so every supported
-     * pricing, stock and quantity field is administrable.
+     * Existing editable rows are replaced atomically for the pack. Components
+     * are simplified to a single selectable product with a quantity and no
+     * per-component pricing: the product price is used globally.
      *
      * @param int $idPack pack identifier
      * @param list<array<string, mixed>> $components component definitions
@@ -149,19 +149,20 @@ final class PackRepository
         \Db::getInstance()->delete('dydaps_pack_component', 'id_pack = ' . (int) $idPack);
 
         foreach (array_values($components) as $position => $component) {
+            $quantity = max(1, (int) ($component['quantity'] ?? 1));
             if (!\Db::getInstance()->insert('dydaps_pack_component', [
                 'id_pack' => $idPack,
                 'position' => (int) ($component['position'] ?? $position),
                 'component_type' => pSQL((string) ($component['component_type'] ?? 'choice')),
                 'optional' => (int) !empty($component['optional']),
-                'quantity' => max(1, (int) ($component['quantity'] ?? 1)),
-                'min_quantity' => max(0, (int) ($component['min_quantity'] ?? 1)),
-                'max_quantity' => max(1, (int) ($component['max_quantity'] ?? ($component['quantity'] ?? 1))),
-                'pricing_behavior' => pSQL((string) ($component['pricing_behavior'] ?? 'native')),
-                'fixed_price_tax_excl' => (float) ($component['fixed_price_tax_excl'] ?? 0),
-                'discount_percent' => (float) ($component['discount_percent'] ?? 0),
-                'surcharge_tax_excl' => (float) ($component['surcharge_tax_excl'] ?? 0),
-                'active' => (int) ($component['active'] ?? 1),
+                'quantity' => $quantity,
+                'min_quantity' => $quantity,
+                'max_quantity' => $quantity,
+                'pricing_behavior' => 'native',
+                'fixed_price_tax_excl' => 0,
+                'discount_percent' => 0,
+                'surcharge_tax_excl' => 0,
+                'active' => 1,
             ])) {
                 throw new \RuntimeException('Unable to save pack component.');
             }
@@ -175,26 +176,36 @@ final class PackRepository
                 throw new \RuntimeException('Unable to save pack component label.');
             }
 
-            foreach (array_values((array) ($component['products'] ?? [])) as $productPosition => $product) {
-                if (!is_array($product) || (int) ($product['id_product'] ?? 0) <= 0) {
-                    continue;
+            $idProduct = (int) ($component['id_product'] ?? 0);
+            if ($idProduct <= 0 && is_array($component['products'] ?? null)) {
+                foreach (array_values($component['products']) as $product) {
+                    if (is_array($product) && (int) ($product['id_product'] ?? 0) > 0) {
+                        $idProduct = (int) $product['id_product'];
+                        break;
+                    }
                 }
-                if (!\Db::getInstance()->insert('dydaps_pack_component_product', [
-                    'id_component' => $idComponent,
-                    'id_product' => (int) $product['id_product'],
-                    'id_product_attribute' => (int) ($product['id_product_attribute'] ?? 0),
-                    'is_default' => (int) !empty($product['is_default']),
-                    'position' => (int) ($product['position'] ?? $productPosition),
-                    'active' => (int) ($product['active'] ?? 1),
-                ])) {
-                    throw new \RuntimeException('Unable to save pack component product.');
-                }
+            }
+            if ($idProduct <= 0) {
+                continue;
+            }
+            if (!\Db::getInstance()->insert('dydaps_pack_component_product', [
+                'id_component' => $idComponent,
+                'id_product' => $idProduct,
+                'id_product_attribute' => 0,
+                'is_default' => 1,
+                'position' => 0,
+                'active' => 1,
+            ])) {
+                throw new \RuntimeException('Unable to save pack component product.');
             }
         }
     }
 
     /**
-     * Return the full component payload used by the admin JSON editor.
+     * Return the simplified component payload used by the admin JSON editor.
+     *
+     * Each component references a single selectable product whose name is used
+     * as the component label.
      *
      * @param int $idPack pack identifier
      * @param int $idLang language identifier
@@ -205,21 +216,20 @@ final class PackRepository
     {
         $components = $this->getComponents($idPack, $idLang);
         foreach ($components as &$component) {
-            $products = [];
-            foreach ($this->getAllowedSelections((int) $component['id_component']) as $selection) {
-                $products[] = array_merge(
-                    $selection,
-                    $this->buildProductSearchRow(
-                        (int) $selection['id_product'],
-                        (int) $selection['id_product_attribute'],
-                        (string) \Product::getProductName((int) $selection['id_product'], null, $idLang),
-                        '',
-                        '',
-                        $idLang
-                    )
-                );
+            $selections = $this->getAllowedSelections((int) $component['id_component']);
+            $selection = $selections[0] ?? null;
+            $idProduct = $selection ? (int) $selection['id_product'] : 0;
+            $component['id_product'] = $idProduct;
+            $component['reference'] = $idProduct > 0
+                ? (string) \Db::getInstance()->getValue(
+                    'SELECT reference FROM `' . _DB_PREFIX_ . 'product` WHERE id_product = ' . (int) $idProduct
+                )
+                : '';
+            if (trim((string) $component['name']) === '') {
+                $component['name'] = $idProduct > 0
+                    ? (string) \Product::getProductName($idProduct, null, $idLang)
+                    : ('Component #' . (int) $component['id_component']);
             }
-            $component['products'] = $products;
         }
         unset($component);
 

@@ -22,8 +22,39 @@
   margin-bottom: .75rem;
 }
 
-.dydaps-pack-configurator__component select {
-  max-width: 100%;
+.dydaps-pack-configurator__include {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: .35rem;
+}
+
+.dydaps-pack-configurator__product {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  justify-content: space-between;
+}
+
+.dydaps-pack-configurator__product-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dydaps-pack-configurator__product-text small {
+  color: #6c757d;
+}
+
+.dydaps-pack-configurator__availability--ok {
+  color: #28a745;
+}
+
+.dydaps-pack-configurator__availability--no,
+.dydaps-pack-configurator__unavailable {
+  color: #dc3545;
 }
 
 .dydaps-pack-configurator__message {
