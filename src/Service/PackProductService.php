@@ -30,18 +30,6 @@ if (!defined('_PS_VERSION_')) {
  */
 final class PackProductService
 {
-    private \Context $context;
-
-    /**
-     * @param \Context $context injected legacy context used to scope shop operations
-     *
-     * @return void
-     */
-    public function __construct(\Context $context)
-    {
-        $this->context = $context;
-    }
-
     /**
      * Create the pack product or update an existing one.
      *
@@ -96,7 +84,7 @@ final class PackProductService
 
         try {
             $address = new \Address();
-            $address->id_country = (int) \Country::getDefaultCountryId();
+            $address->id_country = (int) \Configuration::get('PS_COUNTRY_DEFAULT');
             $address->id_state = 0;
             $address->postcode = '00000';
             $calculator = \TaxManagerFactory::getManager($address, (int) $idTaxRulesGroup)->getTaxCalculator();
@@ -121,7 +109,7 @@ final class PackProductService
         $name = trim((string) ($data['product_name'] ?? ''));
         $linkRewrite = trim((string) ($data['link_rewrite'] ?? ''));
         if ($linkRewrite === '') {
-            $linkRewrite = \Tools::link_rewrite($name !== '' ? $name : 'pack-' . time());
+            $linkRewrite = $this->slugify($name !== '' ? $name : 'pack-' . time());
         }
 
         foreach (\Language::getLanguages(false) as $lang) {
@@ -145,15 +133,43 @@ final class PackProductService
         $product->weight = (float) ($data['weight'] ?? 0);
         $product->id_category_default = (int) ($data['default_category'] ?? 0);
         $product->id_shop_default = (int) $idShop;
-        $product->active = 1;
-        $product->available_for_order = 1;
-        $product->show_price = 1;
+        $product->active = true;
+        $product->available_for_order = true;
+        $product->show_price = true;
         $product->visibility = 'both';
-        $product->is_virtual = 0;
+        $product->is_virtual = false;
         $product->additional_delivery_times = 2;
         if (property_exists($product, 'product_type')) {
             $product->product_type = 'standard';
         }
+    }
+
+    /**
+     * Build a URL-safe slug from a product label without relying on legacy Tools.
+     *
+     * @param string $value source label
+     *
+     * @return string slug, or a time-based fallback when the result is empty
+     */
+    private function slugify(string $value): string
+    {
+        $ascii = strtr($value, [
+            'à' => 'a', 'â' => 'a', 'ä' => 'a', 'æ' => 'ae',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'î' => 'i', 'ï' => 'i',
+            'ô' => 'o', 'ö' => 'o', 'œ' => 'oe',
+            'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c',
+            'À' => 'a', 'Â' => 'a', 'Ä' => 'a',
+            'É' => 'e', 'È' => 'e', 'Ê' => 'e', 'Ë' => 'e',
+            'Î' => 'i', 'Ï' => 'i',
+            'Ô' => 'o', 'Ö' => 'o',
+            'Ù' => 'u', 'Û' => 'u', 'Ü' => 'u',
+            'Ç' => 'c',
+        ]);
+        $slug = strtolower(trim((string) preg_replace('/[^a-zA-Z0-9]+/', '-', $ascii), '-'));
+
+        return $slug !== '' ? $slug : 'pack-' . time();
     }
 
     /**

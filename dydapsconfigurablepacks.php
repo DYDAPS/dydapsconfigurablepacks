@@ -21,7 +21,6 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
 }
 
-use Dydaps\ConfigurablePacks\Config\PackConfig;
 use Dydaps\ConfigurablePacks\Model\PackConfiguration;
 use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
 use Dydaps\ConfigurablePacks\Repository\PackOrderRepository;
