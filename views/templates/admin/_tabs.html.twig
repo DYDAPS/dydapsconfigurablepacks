@@ -1,14 +1,13 @@
 {% trans_default_domain 'Modules.Dydapsconfigurablepacks.Admin' %}
 
 {% set tabs = [
-  { key: 'packs', label: 'Packs', route: 'dydaps_configurable_packs_index', controller: 'AdminDydapsConfigurablePacks' },
-  { key: 'new', label: 'Create', route: 'dydaps_configurable_packs_create', controller: 'AdminDydapsConfigurablePacks' }
+  { key: 'packs', label: 'Packs', route: 'dydaps_configurable_packs_index' }
 ] %}
 
 {% set visibleTabs = [] %}
 
 {% for tab in tabs %}
-  {% if is_granted('read', tab.controller) %}
+  {% if permissions.read %}
     {% set visibleTabs = visibleTabs|merge([tab]) %}
   {% endif %}
 {% endfor %}

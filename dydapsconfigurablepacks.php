@@ -59,7 +59,7 @@ final class DydapsConfigurablePacks extends Module
     {
         $this->name = 'dydapsconfigurablepacks';
         $this->tab = 'administration';
-        $this->version = '1.1.0';
+        $this->version = '1.2.0';
         $this->author = 'DYDAPS';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -104,14 +104,12 @@ final class DydapsConfigurablePacks extends Module
      */
     public function uninstall(): bool
     {
-        $deleteData = (int) Configuration::get(PackConfig::KEY_DELETE_DATA);
         $this->uninstallTab();
-        Configuration::deleteByName(PackConfig::KEY_DELETE_DATA);
+        // Legacy cleanup for the removed delete-data configuration flag.
+        Configuration::deleteByName('DYDAPS_CONFIGURABLE_PACKS_DELETE_DATA');
         // Legacy cleanup for a removed configuration key that no longer affects runtime behavior.
         Configuration::deleteByName('DYDAPS_CONFIGURABLE_PACKS_ROUND_PRECISION');
-        if ($deleteData) {
-            $this->runSqlFile(__DIR__ . '/sql/uninstall.sql');
-        }
+        $this->runSqlFile(__DIR__ . '/sql/uninstall.sql');
 
         return parent::uninstall();
     }
@@ -747,7 +745,7 @@ final class DydapsConfigurablePacks extends Module
      */
     private function installConfiguration(): bool
     {
-        return Configuration::updateValue(PackConfig::KEY_DELETE_DATA, 0);
+        return true;
     }
 
     /**

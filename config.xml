@@ -2,11 +2,11 @@
 <module>
     <name>dydapsconfigurablepacks</name>
     <displayName><![CDATA[DYDAPS - Configurable Packs]]></displayName>
-    <version><![CDATA[1.1.0]]></version>
+    <version><![CDATA[1.2.0]]></version>
     <description><![CDATA[Create and sell configurable product packs.]]></description>
     <author><![CDATA[DYDAPS]]></author>
     <tab><![CDATA[administration]]></tab>
-    <confirmUninstall><![CDATA[Uninstall module? Pack data can be retained or removed depending on module configuration.]]></confirmUninstall>
+    <confirmUninstall><![CDATA[Uninstall module? All module data will be removed.]]></confirmUninstall>
     <is_configurable>1</is_configurable>
     <need_instance>0</need_instance>
     <limited_countries></limited_countries>

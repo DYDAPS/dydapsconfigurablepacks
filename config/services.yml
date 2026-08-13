@@ -65,6 +65,12 @@ services:
     arguments:
       - '@dydaps.configurable_packs.service.stock_calculator'
 
+  dydaps.configurable_packs.service.product:
+    class: 'Dydaps\ConfigurablePacks\Service\PackProductService'
+    public: true
+    arguments:
+      $context: '@=service("prestashop.adapter.legacy.context").getContext()'
+
   dydaps.configurable_packs.validator.configuration:
     class: 'Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator'
     public: true
@@ -144,6 +150,8 @@ services:
     class: 'Dydaps\ConfigurablePacks\Grid\Definition\Factory\PackGridDefinitionFactory'
     parent: 'prestashop.core.grid.definition.factory.abstract_grid_definition'
     public: true
+    calls:
+      - [setCsrfTokenManager, ['@security.csrf.token_manager']]
 
   dydaps.configurable_packs.grid.query.packs:
     class: 'Dydaps\ConfigurablePacks\Grid\Query\PackQueryBuilder'
@@ -183,6 +191,7 @@ services:
       - '@dydaps.configurable_packs.grid.factory.packs'
       - '@prestashop.core.grid.presenter.grid_presenter'
       - '@dydaps.configurable_packs.repository.pack'
+      - '@dydaps.configurable_packs.service.product'
       - '@translator'
 
   dydaps.configurable_packs.controller.admin.pack:

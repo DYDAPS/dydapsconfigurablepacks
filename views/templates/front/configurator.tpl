@@ -18,6 +18,8 @@
   data-csrf-token="{$dydaps_pack_ajax_token|escape:'html':'UTF-8'}"
   data-label-available="{l s='Available' mod='dydapsconfigurablepacks' d='Modules.Dydapsconfigurablepacks.Shop'}"
   data-label-unavailable="{l s='Unavailable' mod='dydapsconfigurablepacks' d='Modules.Dydapsconfigurablepacks.Shop'}"
+  data-label-include="{l s='Include' mod='dydapsconfigurablepacks' d='Modules.Dydapsconfigurablepacks.Shop'}"
+  data-label-quantity="{l s='Quantity' mod='dydapsconfigurablepacks' d='Modules.Dydapsconfigurablepacks.Shop'}"
   data-label-estimated-total="{l s='Estimated components total:' mod='dydapsconfigurablepacks' d='Modules.Dydapsconfigurablepacks.Shop'}">
   <h2>{l s='Configure your pack' mod='dydapsconfigurablepacks' d='Modules.Dydapsconfigurablepacks.Shop'}</h2>
   <div class="dydaps-pack-configurator__body" data-pack-components></div>

@@ -25,6 +25,7 @@ use Dydaps\ConfigurablePacks\Form\PackGeneralType;
 use Dydaps\ConfigurablePacks\Grid\Definition\Factory\PackGridDefinitionFactory;
 use Dydaps\ConfigurablePacks\Grid\Filters\PackFilters;
 use Dydaps\ConfigurablePacks\Repository\PackRepository;
+use Dydaps\ConfigurablePacks\Service\PackProductService;
 use PrestaShop\PrestaShop\Core\Grid\GridFactoryInterface;
 use PrestaShop\PrestaShop\Core\Grid\Presenter\GridPresenterInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -42,20 +43,23 @@ final class PackController extends AbstractDydapsAdminController
 {
     private GridFactoryInterface $gridFactory;
     private PackRepository $repository;
+    private PackProductService $productService;
 
     /**
      * @param GridFactoryInterface $gridFactory factory building the pack grid
      * @param GridPresenterInterface $gridPresenter presenter converting grids to template data
      * @param PackRepository $repository repository used for pack persistence
+     * @param PackProductService $productService service managing the native pack product
      * @param object|null $translator prestaShop translator-like service
      *
      * @return void
      */
-    public function __construct(GridFactoryInterface $gridFactory, GridPresenterInterface $gridPresenter, PackRepository $repository, $translator)
+    public function __construct(GridFactoryInterface $gridFactory, GridPresenterInterface $gridPresenter, PackRepository $repository, PackProductService $productService, $translator)
     {
         $this->gridFactory = $gridFactory;
         $this->setGridPresenter($gridPresenter);
         $this->repository = $repository;
+        $this->productService = $productService;
         $this->setTranslator($translator);
     }
 
@@ -77,8 +81,7 @@ final class PackController extends AbstractDydapsAdminController
             'layoutTitle' => $this->t('Configurable Packs', 'Modules.Dydapsconfigurablepacks.Admin'),
             'active' => 'packs',
             'grid' => $this->presentGrid($grid),
-            'settingsCsrfToken' => $this->csrfToken('dydaps.configurable_packs.settings'),
-            'deleteDataOnUninstall' => (bool) \Configuration::get(\Dydaps\ConfigurablePacks\Config\PackConfig::KEY_DELETE_DATA),
+            'permissions' => $this->getAdminPermissions($request),
         ]);
     }
 
@@ -156,8 +159,14 @@ final class PackController extends AbstractDydapsAdminController
     public function toggle(Request $request, int $id): RedirectResponse
     {
         $this->denyUpdate($request);
-        \Db::getInstance()->execute('UPDATE `' . _DB_PREFIX_ . 'dydaps_pack` SET active = IF(active = 1, 0, 1), updated_at = NOW() WHERE id_pack = ' . (int) $id);
-        $this->addFlash('success', $this->t('Pack status updated.', 'Modules.Dydapsconfigurablepacks.Admin'));
+        if (!$this->validateActionCsrf($request, 'dydaps.configurable_packs.pack.toggle')) {
+            return $this->redirectToRoute('dydaps_configurable_packs_index');
+        }
+        $pack = $this->repository->getPack($id);
+        if ($pack) {
+            \Db::getInstance()->execute('UPDATE `' . _DB_PREFIX_ . 'dydaps_pack` SET active = IF(active = 1, 0, 1), updated_at = NOW() WHERE id_pack = ' . (int) $id);
+            $this->addFlash('success', $this->t('Pack status updated.', 'Modules.Dydapsconfigurablepacks.Admin'));
+        }
 
         return $this->redirectToRoute('dydaps_configurable_packs_index');
     }
@@ -173,6 +182,9 @@ final class PackController extends AbstractDydapsAdminController
     public function delete(Request $request, int $id): RedirectResponse
     {
         $this->denyDelete($request);
+        if (!$this->validateActionCsrf($request, 'dydaps.configurable_packs.pack.delete')) {
+            return $this->redirectToRoute('dydaps_configurable_packs_index');
+        }
         $this->repository->deletePack($id);
         $this->addFlash('success', $this->t('Pack configuration deleted.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
@@ -206,23 +218,6 @@ final class PackController extends AbstractDydapsAdminController
     }
 
     /**
-     * Save module settings.
-     *
-     * @param Request $request current admin request
-     *
-     * @return RedirectResponse redirect back to the pack grid
-     */
-    public function settings(Request $request): RedirectResponse
-    {
-        $this->denyUpdate($request);
-        $this->assertValidCsrf($request, 'dydaps.configurable_packs.settings');
-        \Configuration::updateValue(\Dydaps\ConfigurablePacks\Config\PackConfig::KEY_DELETE_DATA, (int) $request->request->get('delete_data_on_uninstall', 0));
-        $this->addFlash('success', $this->t('Settings updated.', 'Modules.Dydapsconfigurablepacks.Admin'));
-
-        return $this->redirectToRoute('dydaps_configurable_packs_index');
-    }
-
-    /**
      * Render and process the general pack form.
      *
      * @param Request $request current admin request
@@ -232,31 +227,20 @@ final class PackController extends AbstractDydapsAdminController
      */
     private function handleForm(Request $request, ?array $pack): Response
     {
-        $data = $pack ?: [
-            'id_product' => 0,
-            'id_shop' => (int) $this->getContext()->shop->id,
-            'active' => false,
-            'pack_type' => 'fixed',
-            'pricing_method' => 'fixed',
-            'fixed_price_tax_excl' => 0,
-            'forced_price_tax_excl' => 0,
-            'global_discount_percent' => 0,
-            'global_discount_amount_tax_excl' => 0,
-            'stock_behavior' => 'components',
-            'components_json' => $this->getDefaultComponentsJson(),
-        ];
-        if ($pack) {
-            $data['active'] = (bool) $data['active'];
-            $data['components_json'] = json_encode($this->repository->getComponentsForAdmin((int) $pack['id_pack'], (int) $this->getContext()->language->id), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        }
+        $idShop = (int) ($pack['id_shop'] ?? $this->getContext()->shop->id);
+        $idLang = (int) $this->getContext()->language->id;
+        $idProduct = (int) ($pack['id_product'] ?? 0);
 
+        $data = $this->buildFormData($pack, $idProduct, $idShop, $idLang);
         $form = $this->createForm(PackGeneralType::class, $data);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $payload = $form->getData();
             $payload['id_pack'] = (int) ($pack['id_pack'] ?? 0);
-            $payload['id_shop'] = (int) ($pack['id_shop'] ?? $this->getContext()->shop->id);
+            $payload['id_shop'] = $idShop;
+            $payload['active'] = (int) ($pack['active'] ?? 1);
+
             $components = json_decode((string) ($payload['components_json'] ?? '[]'), true);
             if (!is_array($components)) {
                 $this->addFlash('error', $this->t('The pack component definition is invalid.', 'Modules.Dydapsconfigurablepacks.Admin'));
@@ -271,15 +255,29 @@ final class PackController extends AbstractDydapsAdminController
 
                 return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
             }
-            $existingPack = $this->repository->getPackByProduct((int) $payload['id_product'], (int) $payload['id_shop']);
-            if ($existingPack && (int) $existingPack['id_pack'] !== (int) $payload['id_pack']) {
-                $this->addFlash('error', $this->t('This product is already configured as a pack for the current shop.', 'Modules.Dydapsconfigurablepacks.Admin'));
+
+            $idProduct = (int) ($payload['id_product'] ?? 0);
+            if ($idProduct > 0) {
+                $existingPack = $this->repository->getPackByProduct($idProduct, $idShop);
+                if ($existingPack && (int) $existingPack['id_pack'] !== (int) $payload['id_pack']) {
+                    $this->addFlash('error', $this->t('This product is already configured as a pack for the current shop.', 'Modules.Dydapsconfigurablepacks.Admin'));
+
+                    return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
+                }
+            }
+
+            try {
+                $idProduct = $this->productService->createOrUpdate($idProduct > 0 ? $idProduct : null, $payload, $idShop);
+            } catch (\Throwable $e) {
+                $this->addFlash('error', $this->t('Unable to save the pack product.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
                 return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
             }
+            $payload['id_product'] = $idProduct;
+
             unset($payload['components_json']);
             $idPack = $this->repository->savePack($payload);
-            $this->repository->replaceComponents($idPack, array_values($components), (int) $this->getContext()->language->id);
+            $this->repository->replaceComponents($idPack, array_values($components), $idLang);
             $this->addFlash('success', $this->t('Pack configuration saved.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
             return $this->redirectToRoute('dydaps_configurable_packs_index');
@@ -287,10 +285,102 @@ final class PackController extends AbstractDydapsAdminController
 
         return $this->render('@Modules/dydapsconfigurablepacks/views/templates/admin/pack_form.html.twig', [
             'layoutTitle' => $pack ? $this->t('Edit pack', 'Modules.Dydapsconfigurablepacks.Admin') : $this->t('Create pack', 'Modules.Dydapsconfigurablepacks.Admin'),
-            'active' => $pack ? 'packs' : 'new',
+            'active' => 'packs',
             'form' => $form->createView(),
             'canUpdate' => true,
+            'permissions' => $this->getAdminPermissions($request),
+            'taxRates' => $this->getTaxRateMap(),
         ]);
+    }
+
+    /**
+     * Build the form payload from an existing pack and its linked product.
+     *
+     * @param array<string, mixed>|null $pack existing pack row, or null for creation defaults
+     * @param int $idProduct linked native product identifier
+     * @param int $idShop pack shop identifier
+     * @param int $idLang current language identifier
+     *
+     * @return array<string, mixed> form initial data
+     */
+    private function buildFormData(?array $pack, int $idProduct, int $idShop, int $idLang): array
+    {
+        $data = [
+            'id_product' => $idProduct,
+            'id_shop' => $idShop,
+            'product_name' => '',
+            'product_summary' => '',
+            'product_description' => '',
+            'reference' => '',
+            'link_rewrite' => '',
+            'categories' => [],
+            'default_category' => 0,
+            'accessories' => [],
+            'width' => 0,
+            'height' => 0,
+            'depth' => 0,
+            'weight' => 0,
+            'delivery_time' => '',
+            'price_tax_excl' => 0,
+            'tax_rules_group' => (int) \Configuration::get('PS_TAX_RULES_GROUP_DEFAULT'),
+            'meta_title' => '',
+            'meta_description' => '',
+            'pack_type' => 'fixed',
+            'pricing_method' => 'fixed',
+            'fixed_price_tax_excl' => 0,
+            'forced_price_tax_excl' => 0,
+            'global_discount_percent' => 0,
+            'global_discount_amount_tax_excl' => 0,
+            'stock_behavior' => 'components',
+            'components_json' => $this->getDefaultComponentsJson(),
+        ];
+
+        if ($pack) {
+            foreach (['pack_type', 'pricing_method', 'stock_behavior', 'fixed_price_tax_excl', 'forced_price_tax_excl', 'global_discount_percent', 'global_discount_amount_tax_excl'] as $key) {
+                $data[$key] = $pack[$key];
+            }
+            $data['components_json'] = json_encode($this->repository->getComponentsForAdmin((int) $pack['id_pack'], $idLang), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        if ($idProduct > 0) {
+            $product = new \Product($idProduct, false, $idLang, $idShop);
+            if (\Validate::isLoadedObject($product)) {
+                $data['product_name'] = (string) ($product->name[$idLang] ?? '');
+                $data['product_summary'] = (string) ($product->description_short[$idLang] ?? '');
+                $data['product_description'] = (string) ($product->description[$idLang] ?? '');
+                $data['reference'] = (string) $product->reference;
+                $data['link_rewrite'] = (string) ($product->link_rewrite[$idLang] ?? '');
+                $data['categories'] = array_map('intval', $product->getCategories());
+                $data['default_category'] = (int) $product->id_category_default;
+                $data['accessories'] = array_map('intval', array_column($product->getAccessories($idLang), 'id_product'));
+                $data['width'] = (float) $product->width;
+                $data['height'] = (float) $product->height;
+                $data['depth'] = (float) $product->depth;
+                $data['weight'] = (float) $product->weight;
+                $data['delivery_time'] = (string) ($product->delivery_in_stock[$idLang] ?? '');
+                $data['price_tax_excl'] = (float) $product->price;
+                $data['tax_rules_group'] = (int) $product->id_tax_rules_group;
+                $data['meta_title'] = (string) ($product->meta_title[$idLang] ?? '');
+                $data['meta_description'] = (string) ($product->meta_description[$idLang] ?? '');
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Build the effective tax rate of each tax rules group for the JS TTC preview.
+     *
+     * @return array<int, float> tax rules group identifier to percentage rate
+     */
+    private function getTaxRateMap(): array
+    {
+        $rates = [];
+        foreach (\TaxRulesGroup::getTaxRulesGroups(true) as $group) {
+            $rates[(int) $group['id_tax_rules_group']] = $this->productService->getTaxRate((int) $group['id_tax_rules_group']);
+        }
+
+        return $rates;
     }
 
     /**
@@ -312,39 +402,36 @@ final class PackController extends AbstractDydapsAdminController
                 $errors[] = $this->t('A pack component is invalid.', 'Modules.Dydapsconfigurablepacks.Admin');
                 continue;
             }
-
-            $label = (string) ($component['name'] ?? '');
-            if (trim($label) === '') {
-                $errors[] = $this->t('Each pack component needs a name.', 'Modules.Dydapsconfigurablepacks.Admin');
+            if ((int) ($component['id_product'] ?? 0) <= 0) {
+                $errors[] = $this->t('Each pack component needs a selectable product.', 'Modules.Dydapsconfigurablepacks.Admin');
             }
-
-            $quantity = (int) ($component['quantity'] ?? 0);
-            $min = (int) ($component['min_quantity'] ?? 0);
-            $max = (int) ($component['max_quantity'] ?? 0);
-            if ($quantity <= 0 || $min < 0 || $max <= 0 || $min > $max || $quantity < $min || $quantity > $max) {
-                $errors[] = $this->t('Component quantities must stay within their minimum and maximum values.', 'Modules.Dydapsconfigurablepacks.Admin');
-            }
-
-            $products = array_values(array_filter((array) ($component['products'] ?? []), static function ($product): bool {
-                return is_array($product) && (int) ($product['id_product'] ?? 0) > 0;
-            }));
-            if (!$products) {
-                $errors[] = $this->t('Each pack component needs at least one selectable product.', 'Modules.Dydapsconfigurablepacks.Admin');
-                continue;
-            }
-
-            $defaultCount = 0;
-            foreach ($products as $product) {
-                if (!empty($product['is_default'])) {
-                    ++$defaultCount;
-                }
-            }
-            if ($defaultCount !== 1) {
-                $errors[] = $this->t('Each pack component needs exactly one default product.', 'Modules.Dydapsconfigurablepacks.Admin');
+            if ((int) ($component['quantity'] ?? 0) < 1) {
+                $errors[] = $this->t('Each pack component needs a quantity of at least 1.', 'Modules.Dydapsconfigurablepacks.Admin');
             }
         }
 
         return array_values(array_unique($errors));
+    }
+
+    /**
+     * Validate a POST action token and convert failures to merchant-facing feedback.
+     *
+     * @param Request $request current request
+     * @param string $tokenId CSRF token identifier
+     *
+     * @return bool true when the action can continue
+     */
+    private function validateActionCsrf(Request $request, string $tokenId): bool
+    {
+        try {
+            $this->assertValidCsrf($request, $tokenId);
+
+            return true;
+        } catch (\Throwable $e) {
+            $this->addFlash('error', $this->t('Security token is invalid. Please try again.', 'Modules.Dydapsconfigurablepacks.Admin'));
+
+            return false;
+        }
     }
 
     /**
@@ -356,27 +443,12 @@ final class PackController extends AbstractDydapsAdminController
     {
         return (string) json_encode([
             [
+                'id_product' => 0,
                 'name' => 'Component 1',
-                'position' => 0,
-                'component_type' => 'choice',
-                'optional' => false,
                 'quantity' => 1,
-                'min_quantity' => 1,
-                'max_quantity' => 1,
-                'pricing_behavior' => 'native',
-                'fixed_price_tax_excl' => 0,
-                'discount_percent' => 0,
-                'surcharge_tax_excl' => 0,
-                'active' => 1,
-                'products' => [
-                    [
-                        'id_product' => 0,
-                        'id_product_attribute' => 0,
-                        'is_default' => true,
-                        'position' => 0,
-                        'active' => 1,
-                    ],
-                ],
+                'optional' => false,
+                'component_type' => 'choice',
+                'position' => 0,
             ],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }

@@ -1,43 +1,47 @@
 {% extends '@PrestaShop/Admin/layout.html.twig' %}
+{% trans_default_domain 'Modules.Dydapsconfigurablepacks.Admin' %}
 
 {% block content %}
-  {% include '@Modules/dydapsconfigurablepacks/views/templates/admin/_tabs.html.twig' with {'active': active} %}
+  {% set canRead = permissions.read %}
+  {% set canCreate = permissions.create %}
+  {% set canUpdate = permissions.update %}
+  {% set canDelete = permissions.delete %}
 
-  <div class="row">
-    <div class="col">
-      <div class="card">
-        <h3 class="card-header">
-          {{ 'Configurable Packs'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-        </h3>
-        <div class="card-body">
-          {{ 'Create pack definitions from native products, then configure components and allowed combinations.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+  <div class="container">
+    {% include '@Modules/dydapsconfigurablepacks/views/templates/admin/_tabs.html.twig' with { active: 'packs', permissions: permissions } %}
+
+    {% if not canRead %}
+      <div class="alert alert-danger">
+        {{ 'You do not have permission to view this page.'|trans }}
+      </div>
+    {% else %}
+      {% if not canUpdate %}
+        <div class="alert alert-warning">
+          {{ 'You can view this page but you do not have permission to update packs.'|trans }}
+        </div>
+      {% endif %}
+
+      <div
+        id="dydaps-pack-grid-config"
+        data-can-create="{{ canCreate ? '1' : '0' }}"
+        data-can-update="{{ canUpdate ? '1' : '0' }}"
+        data-can-delete="{{ canDelete ? '1' : '0' }}"
+        data-active-label="{{ 'Active'|trans|e('html_attr') }}"
+        data-inactive-label="{{ 'Inactive'|trans|e('html_attr') }}"
+      ></div>
+
+      <div class="d-flex justify-content-end mb-3">
+        {% if canCreate %}
+          <a href="{{ path('dydaps_configurable_packs_create') }}" class="btn btn-primary">{{ 'Add pack'|trans }}</a>
+        {% endif %}
+      </div>
+
+      <div class="row">
+        <div class="col">
+          {% include '@PrestaShop/Admin/Common/Grid/grid_panel.html.twig' with { grid: grid } %}
         </div>
       </div>
-      {% include '@PrestaShop/Admin/Common/Grid/grid_panel.html.twig' with {'grid': grid} %}
-
-      <div class="card mt-3">
-        <h3 class="card-header">
-          {{ 'Settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-        </h3>
-        <div class="card-body">
-          <form method="post" action="{{ path('dydaps_configurable_packs_settings') }}">
-            <input type="hidden" name="_csrf_token" value="{{ settingsCsrfToken }}">
-            <div class="form-group">
-              <label class="form-control-label">
-                <input type="checkbox" name="delete_data_on_uninstall" value="1" {{ deleteDataOnUninstall ? 'checked' : '' }}>
-                {{ 'Delete module data during uninstall'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-              </label>
-              <p class="form-text text-muted">
-                {{ 'When enabled, uninstalling the module permanently removes pack definitions, cart rows, order snapshots, stock logs and refund records.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-              </p>
-            </div>
-            <button class="btn btn-primary" type="submit">
-              {{ 'Save settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+    {% endif %}
   </div>
 {% endblock %}
 
