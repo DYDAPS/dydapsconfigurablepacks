@@ -86,6 +86,7 @@ final class PackPrestaShopFlowIntegrationTest
             new PackPriceCalculator($this->packRepository, new PackDiscountAllocator(), $this->context),
             new PackAvailabilityService(new PackStockCalculator(new PackStockRepository())),
             new PackConfigurationValidator($this->packRepository),
+            $this->packRepository,
             $this->legacyContext
         );
         $this->bootAdminKernel();

@@ -402,6 +402,8 @@ final class PackController extends AbstractDydapsAdminController
             'pack_type' => 'fixed',
             'pricing_method' => PackConfig::PRICING_FIXED,
             'stock_behavior' => 'components',
+            'show_stock_badge' => true,
+            'allow_oos_order' => false,
             'components_json' => $this->getDefaultComponentsJson(),
         ];
 
@@ -418,9 +420,11 @@ final class PackController extends AbstractDydapsAdminController
         }
 
         if ($pack) {
-            foreach (['pack_type', 'pricing_method', 'stock_behavior', 'fixed_price_tax_excl', 'forced_price_tax_excl', 'global_discount_percent', 'global_discount_amount_tax_excl'] as $key) {
+            foreach (['pack_type', 'pricing_method', 'stock_behavior', 'show_stock_badge', 'allow_oos_order', 'fixed_price_tax_excl', 'forced_price_tax_excl', 'global_discount_percent', 'global_discount_amount_tax_excl'] as $key) {
                 $data[$key] = $pack[$key];
             }
+            $data['show_stock_badge'] = (int) ($pack['show_stock_badge'] ?? 1) === 1;
+            $data['allow_oos_order'] = (int) ($pack['allow_oos_order'] ?? 0) === 1;
             $data['components_json'] = json_encode($this->repository->getComponentsForAdmin((int) $pack['id_pack'], $idLang), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
 

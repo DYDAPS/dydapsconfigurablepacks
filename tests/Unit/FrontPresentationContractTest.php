@@ -28,5 +28,8 @@ assert(strpos($script, "row.setAttribute('data-component-selected-product', '')"
 assert(substr_count($script, 'renderSelectedProductRow(wrapper, state);') >= 2, 'Both select-based and declination-based choices must display the selected product row.');
 assert(strpos($script, 'renderSelectedProductRow(state.wrapper, state);') !== false, 'Changing a declination must refresh the selected product row.');
 assert(strpos($script, "'class': 'dydaps-pack-configurator__availability") !== false, 'The selected product row must keep the availability badge.');
+assert(strpos($script, 'state.selections = {};') !== false, 'Declination groups must start without a preselected combination.');
+assert(strpos($script, 'function clearDependentDeclinationSelections(state)') !== false, 'Declination chips must support dependent deselection.');
+assert(strpos($script, 'String(tentative[groupId]) === String(attributeId)') !== false, 'Clicking an active declination chip must deselect it.');
 
 echo "Front presentation contract tests passed.\n";

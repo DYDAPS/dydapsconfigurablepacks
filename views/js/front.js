@@ -229,9 +229,11 @@
           text.appendChild(el('small', {}, product.reference));
         }
         row.appendChild(text);
-        row.appendChild(el('span', {
-          'class': 'dydaps-pack-configurator__availability dydaps-pack-configurator__availability--' + (product.available ? 'ok' : 'no')
-        }, product.available ? labels.available : labels.unavailable));
+        if (state.showStockBadge) {
+          row.appendChild(el('span', {
+            'class': 'dydaps-pack-configurator__availability dydaps-pack-configurator__availability--' + (product.available ? 'ok' : 'no')
+          }, product.available ? labels.available : labels.unavailable));
+        }
         row.appendChild(el('span', {
           'class': 'dydaps-pack-configurator__impact'
         }, formatPrice(product.impact_tax_incl)));
@@ -305,21 +307,6 @@
         });
       }
 
-      function defaultSelections(state) {
-        var selections = {};
-        var index = 0;
-        state.products.forEach(function (product, i) {
-          if (product.is_default) {
-            index = i;
-          }
-        });
-        (state.products[index].attributes || []).forEach(function (attr) {
-          selections[String(attr.id_attribute_group)] = String(attr.id_attribute);
-        });
-
-        return selections;
-      }
-
       function matchingIndexes(state) {
         var indexes = [];
         state.products.forEach(function (product, index) {
@@ -329,6 +316,68 @@
         });
 
         return indexes;
+      }
+
+      function hasCompleteDeclinationSelection(state) {
+        return (state.groups || []).every(function (group) {
+          return !!state.selections[group.id];
+        });
+      }
+
+      function findSelectedDeclination(state) {
+        if (!hasCompleteDeclinationSelection(state)) {
+          return null;
+        }
+        var product = null;
+        state.products.forEach(function (candidate) {
+          if (!product && comboMatches(candidate, state.selections)) {
+            product = candidate;
+          }
+        });
+
+        return product;
+      }
+
+      function pruneInvalidDeclinationSelections(state) {
+        var changed = true;
+        while (changed) {
+          changed = false;
+          Object.keys(state.selections).forEach(function (gid) {
+            var candidateSelections = {};
+            Object.keys(state.selections).forEach(function (otherGid) {
+              if (otherGid !== gid) {
+                candidateSelections[otherGid] = state.selections[otherGid];
+              }
+            });
+            candidateSelections[gid] = state.selections[gid];
+            var valid = state.products.some(function (product) {
+              return comboMatches(product, candidateSelections);
+            });
+            if (!valid) {
+              delete state.selections[gid];
+              changed = true;
+            }
+          });
+        }
+      }
+
+      function clearDependentDeclinationSelections(state) {
+        (state.groups || []).forEach(function (group) {
+          if ((group.attributes || []).length > 1) {
+            delete state.selections[group.id];
+          }
+        });
+      }
+
+      function syncSelectedDeclination(state) {
+        pruneInvalidDeclinationSelections(state);
+        state.selected = findSelectedDeclination(state);
+        syncDeclinations(state);
+        renderSelectedProductRow(state.wrapper, state);
+        renderCustomization(state.wrapper, state);
+        announceSelection(state);
+        updateSummary();
+        syncAddState();
       }
 
       function chipEnabled(state, groupId, candidate) {
@@ -378,8 +427,10 @@
 
       function announceSelection(state) {
         var region = state.wrapper.querySelector('[data-declination-live]');
-        if (region && state.selected) {
-          region.textContent = state.selected.name + (state.selected.attributes_text ? ' - ' + state.selected.attributes_text : '');
+        if (region) {
+          region.textContent = state.selected
+            ? state.selected.name + (state.selected.attributes_text ? ' - ' + state.selected.attributes_text : '')
+            : '';
         }
       }
 
@@ -392,6 +443,12 @@
         Object.keys(state.selections).forEach(function (gid) {
           tentative[gid] = state.selections[gid];
         });
+        if (String(tentative[groupId]) === String(attributeId)) {
+          clearDependentDeclinationSelections(state);
+          syncSelectedDeclination(state);
+
+          return;
+        }
         tentative[groupId] = attributeId;
         var candidate = null;
         state.products.forEach(function (product) {
@@ -403,19 +460,13 @@
           return;
         }
         state.selections = tentative;
-        state.selected = candidate;
-        syncDeclinations(state);
-        renderSelectedProductRow(state.wrapper, state);
-        renderCustomization(state.wrapper, state);
-        announceSelection(state);
-        updateSummary();
-        syncAddState();
+        syncSelectedDeclination(state);
       }
 
       function renderDeclinations(wrapper, state) {
         state.groups = buildGroups(state);
-        state.selections = defaultSelections(state);
-        state.selected = state.products[matchingIndexes(state)[0] || 0];
+        state.selections = {};
+        state.selected = null;
 
         var block = el('div', {'class': 'dydaps-pack-configurator__declinations'});
         var live = el('p', {
@@ -533,7 +584,11 @@
       function validate() {
         var errors = [];
         components.forEach(function (state) {
-          if (!isIncluded(state) || !state.selected) {
+          if (!isIncluded(state)) {
+            return;
+          }
+          if (!state.selected) {
+            errors.push(labels.selectOption);
             return;
           }
           (state.selected.customization_fields || []).forEach(function (field) {
@@ -617,6 +672,9 @@
         }
         body.innerHTML = '';
         feeModuleAvailable = !!payload.fee_module_available;
+        var showStockBadge = !payload.pack
+          || !Object.prototype.hasOwnProperty.call(payload.pack, 'show_stock_badge')
+          || flagToBool(payload.pack.show_stock_badge);
         components = (payload.components || []).map(function (component) {
           return {
             id: parseInt(component.id_component, 10),
@@ -625,6 +683,7 @@
             quantity: parseInt(component.quantity || 1, 10),
             allowCustomization: flagToBool(component.allow_customization),
             customizationRequired: flagToBool(component.customization_required),
+            showStockBadge: showStockBadge,
             products: (component.products || []).filter(function (product) {
               return product && product.id_product;
             }),

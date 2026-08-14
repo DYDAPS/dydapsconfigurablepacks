@@ -23,6 +23,7 @@ if (!defined('_PS_VERSION_')) {
 
 use Dydaps\ConfigurablePacks\Model\PackConfiguration;
 use Dydaps\ConfigurablePacks\Repository\PackCartRepository;
+use Dydaps\ConfigurablePacks\Repository\PackRepository;
 use Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
 
@@ -38,6 +39,7 @@ final class PackCartService
     private PackPriceCalculator $priceCalculator;
     private PackAvailabilityService $availabilityService;
     private PackConfigurationValidator $validator;
+    private PackRepository $packRepository;
     private LegacyContext $legacyContext;
 
     /**
@@ -46,6 +48,7 @@ final class PackCartService
      * @param PackPriceCalculator $priceCalculator calculator for unit price snapshots
      * @param PackAvailabilityService $availabilityService service enforcing component stock availability
      * @param PackConfigurationValidator $validator validator for pack definition constraints
+     * @param PackRepository $packRepository repository used to read pack stock settings
      * @param LegacyContext $legacyContext adapter used to translate the native pack customization label
      *
      * @return void
@@ -56,6 +59,7 @@ final class PackCartService
         PackPriceCalculator $priceCalculator,
         PackAvailabilityService $availabilityService,
         PackConfigurationValidator $validator,
+        PackRepository $packRepository,
         LegacyContext $legacyContext,
     ) {
         $this->cartRepository = $cartRepository;
@@ -63,6 +67,7 @@ final class PackCartService
         $this->priceCalculator = $priceCalculator;
         $this->availabilityService = $availabilityService;
         $this->validator = $validator;
+        $this->packRepository = $packRepository;
         $this->legacyContext = $legacyContext;
     }
 
@@ -92,7 +97,8 @@ final class PackCartService
         $existing = $this->cartRepository->getCartConfigurationByHash((int) $cart->id, $configuration->getIdProduct(), 0, $hash);
         $totalQuantity = $configuration->getQuantity() + ($existing ? (int) $existing['quantity'] : 0);
         $availabilityConfiguration = new PackConfiguration($configuration->getIdProduct(), $configuration->getComponents(), $totalQuantity);
-        $this->availabilityService->assertAvailable($availabilityConfiguration, $idShop);
+        $pack = $this->packRepository->getPackByProduct($configuration->getIdProduct(), $idShop);
+        $this->availabilityService->assertAvailable($availabilityConfiguration, $idShop, $pack !== null && (int) ($pack['allow_oos_order'] ?? 0) === 1);
         $price = $this->priceCalculator->calculate($configuration, $idShop, $idLang, $idCurrency, $idCustomer);
         $idCustomization = $existing ? (int) $existing['id_customization'] : $this->createNativeCustomization($cart, $configuration, $idLang, $idShop);
 

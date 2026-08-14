@@ -98,6 +98,7 @@ services:
       2: '@dydaps.configurable_packs.service.price_calculator'
       3: '@dydaps.configurable_packs.service.availability'
       4: '@dydaps.configurable_packs.validator.configuration'
+      5: '@dydaps.configurable_packs.repository.pack'
       $legacyContext: '@prestashop.adapter.legacy.context'
 
   dydaps.configurable_packs.service.cart_synchronizer:

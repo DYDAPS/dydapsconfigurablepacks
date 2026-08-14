@@ -466,7 +466,9 @@ final class PackRepository
      *     forced_price_tax_excl?: float|int|string,
      *     global_discount_percent?: float|int|string,
      *     global_discount_amount_tax_excl?: float|int|string,
-     *     stock_behavior?: string
+     *     stock_behavior?: string,
+     *     show_stock_badge?: int|bool,
+     *     allow_oos_order?: int|bool
      * } $data Form payload
      *
      * @return int pack identifier
@@ -485,12 +487,14 @@ final class PackRepository
             'global_discount_percent' => (float) ($data['global_discount_percent'] ?? 0),
             'global_discount_amount_tax_excl' => (float) ($data['global_discount_amount_tax_excl'] ?? 0),
             'stock_behavior' => pSQL((string) ($data['stock_behavior'] ?? 'components')),
+            'show_stock_badge' => (int) !empty($data['show_stock_badge']),
+            'allow_oos_order' => (int) !empty($data['allow_oos_order']),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 
         if ($idPack > 0) {
             \Db::getInstance()->update('dydaps_pack', $payload, 'id_pack = ' . $idPack);
-            $this->applyContainerStockPolicy((int) $data['id_product'], (int) $data['id_shop'], (string) $payload['stock_behavior']);
+            $this->applyContainerStockPolicy((int) $data['id_product'], (int) $data['id_shop'], (string) $payload['stock_behavior'], (bool) $payload['allow_oos_order']);
 
             return $idPack;
         }
@@ -498,7 +502,7 @@ final class PackRepository
         $payload['created_at'] = date('Y-m-d H:i:s');
         \Db::getInstance()->insert('dydaps_pack', $payload);
         $idPack = (int) \Db::getInstance()->Insert_ID();
-        $this->applyContainerStockPolicy((int) $data['id_product'], (int) $data['id_shop'], (string) $payload['stock_behavior']);
+        $this->applyContainerStockPolicy((int) $data['id_product'], (int) $data['id_shop'], (string) $payload['stock_behavior'], (bool) $payload['allow_oos_order']);
 
         return $idPack;
     }
@@ -513,12 +517,13 @@ final class PackRepository
      * @param int $idProduct native pack container product identifier
      * @param int $idShop shop identifier
      * @param string $stockBehavior pack stock behavior
+     * @param bool $allowOutOfStockOrder whether PrestaShop should allow the container product out of stock
      *
      * @return void
      */
-    private function applyContainerStockPolicy(int $idProduct, int $idShop, string $stockBehavior): void
+    private function applyContainerStockPolicy(int $idProduct, int $idShop, string $stockBehavior, bool $allowOutOfStockOrder): void
     {
-        if ($idProduct <= 0 || $idShop <= 0 || $stockBehavior !== 'components') {
+        if ($idProduct <= 0 || $idShop <= 0 || ($stockBehavior !== 'components' && !$allowOutOfStockOrder)) {
             return;
         }
 

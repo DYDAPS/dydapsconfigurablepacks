@@ -25,6 +25,7 @@ use Dydaps\ConfigurablePacks\Config\PackConfig;
 use PrestaShopBundle\Form\Admin\Type\FormattedTextareaType;
 use PrestaShopBundle\Form\Admin\Type\TranslatableType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
@@ -255,6 +256,14 @@ final class PackGeneralType extends TranslatorAwareType
                     $this->trans('Validate and decrement components', 'Modules.Dydapsconfigurablepacks.Admin') => 'components',
                     $this->trans('Do not decrement component stock', 'Modules.Dydapsconfigurablepacks.Admin') => 'validate_only',
                 ],
+            ])
+            ->add('show_stock_badge', CheckboxType::class, [
+                'label' => $this->trans('Display component stock status on the product page', 'Modules.Dydapsconfigurablepacks.Admin'),
+                'required' => false,
+            ])
+            ->add('allow_oos_order', CheckboxType::class, [
+                'label' => $this->trans('Allow adding the pack when selected components are out of stock', 'Modules.Dydapsconfigurablepacks.Admin'),
+                'required' => false,
             ])
             ->add('components_json', HiddenType::class, [
                 'label' => $this->trans('Pack component definition', 'Modules.Dydapsconfigurablepacks.Admin'),

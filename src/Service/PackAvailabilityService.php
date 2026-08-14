@@ -50,8 +50,11 @@ final class PackAvailabilityService
      *
      * @throws \RuntimeException when the requested quantity exceeds available component stock
      */
-    public function assertAvailable(PackConfiguration $configuration, int $idShop): void
+    public function assertAvailable(PackConfiguration $configuration, int $idShop, bool $allowOutOfStockOrder = false): void
     {
+        if ($allowOutOfStockOrder) {
+            return;
+        }
         if ($configuration->getQuantity() > $this->stockCalculator->getMaximumAvailableQuantity($configuration, $idShop)) {
             throw new \RuntimeException('Selected pack configuration is not available.');
         }

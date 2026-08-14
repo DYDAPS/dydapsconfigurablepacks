@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS `PREFIX_dydaps_pack` (
   `global_discount_percent` DECIMAL(10,6) NOT NULL DEFAULT 0.000000,
   `global_discount_amount_tax_excl` DECIMAL(20,6) NOT NULL DEFAULT 0.000000,
   `stock_behavior` VARCHAR(32) NOT NULL DEFAULT 'components',
+  `show_stock_badge` TINYINT(1) NOT NULL DEFAULT 1,
+  `allow_oos_order` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   `deleted_at` DATETIME NULL DEFAULT NULL,

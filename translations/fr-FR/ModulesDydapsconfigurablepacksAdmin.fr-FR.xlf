@@ -50,6 +50,8 @@
       <trans-unit id="stock_behavior"><source>Stock behavior</source><target>Gestion du stock</target></trans-unit>
       <trans-unit id="stock_components"><source>Validate and decrement components</source><target>Valider et décrémenter les composants</target></trans-unit>
       <trans-unit id="stock_validate_only"><source>Validate components only</source><target>Valider uniquement les composants</target></trans-unit>
+      <trans-unit id="display_component_stock_status"><source>Display component stock status on the product page</source><target>Afficher le statut de stock des composants sur la fiche produit</target></trans-unit>
+      <trans-unit id="allow_oos_pack_order"><source>Allow adding the pack when selected components are out of stock</source><target>Autoriser l'ajout du pack lorsque les composants sélectionnés sont hors stock</target></trans-unit>
       <trans-unit id="pack_configuration_not_found"><source>Pack configuration not found.</source><target>Configuration du pack introuvable.</target></trans-unit>
       <trans-unit id="pack_configuration_saved"><source>Pack configuration saved.</source><target>Configuration du pack enregistrée.</target></trans-unit>
       <trans-unit id="edit_pack"><source>Edit pack</source><target>Modifier le pack</target></trans-unit>

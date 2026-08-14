@@ -176,6 +176,8 @@
           <div class="dydaps-section__body">
             {{ dydapsForms.form_group(form.pack_type, canUpdate) }}
             {{ dydapsForms.form_group(form.stock_behavior, canUpdate) }}
+            {{ dydapsForms.form_group(form.show_stock_badge, canUpdate) }}
+            {{ dydapsForms.form_group(form.allow_oos_order, canUpdate) }}
           </div>
         </div>
 
@@ -503,11 +505,11 @@
 
 {% block stylesheets %}
   {{ parent() }}
-  <link rel="stylesheet" href="{{ asset('/modules/dydapsconfigurablepacks/views/css/admin-pack-builder.css') }}?v=1.4.0">
+  <link rel="stylesheet" href="{{ asset('/modules/dydapsconfigurablepacks/views/css/admin-pack-builder.css') }}?v=1.4.1">
 {% endblock %}
 
 {% block javascripts %}
   {{ parent() }}
-  <script src="{{ asset('/modules/dydapsconfigurablepacks/views/js/admin-rte.js') }}?v=1.4.0"></script>
-  <script src="{{ asset('/modules/dydapsconfigurablepacks/views/js/admin-pack-builder.js') }}?v=1.4.0"></script>
+  <script src="{{ asset('/modules/dydapsconfigurablepacks/views/js/admin-rte.js') }}?v=1.4.1"></script>
+  <script src="{{ asset('/modules/dydapsconfigurablepacks/views/js/admin-pack-builder.js') }}?v=1.4.1"></script>
 {% endblock %}

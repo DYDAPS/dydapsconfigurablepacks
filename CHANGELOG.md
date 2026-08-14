@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1 - 2026-08-14
+
+- Added pack settings to hide front-office component stock status badges and allow out-of-stock pack orders.
+- Reworked front-office combination chips so complex attribute sets start unselected, can be deselected, and clear dependent choices.
+
 ## 1.4.0 - 2026-08-14
 
 - Fixed the back-office rich text editor so summary and description textareas initialize TinyMCE when their tab becomes visible and save on form submission.

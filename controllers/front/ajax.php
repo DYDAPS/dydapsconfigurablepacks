@@ -110,6 +110,7 @@ class DydapsconfigurablepacksAjaxModuleFrontController extends ModuleFrontContro
                         new PackPriceCalculator($packRepository, new PackDiscountAllocator(), $this->context, $feeCalculator),
                         new PackAvailabilityService(new PackStockCalculator(new PackStockRepository())),
                         new PackConfigurationValidator($packRepository),
+                        $packRepository,
                         $legacyContext
                     ),
                     $packRepository,
