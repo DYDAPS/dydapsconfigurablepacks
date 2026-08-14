@@ -58,7 +58,7 @@ final class DydapsConfigurablePacks extends Module
     {
         $this->name = 'dydapsconfigurablepacks';
         $this->tab = 'administration';
-        $this->version = '1.2.0';
+        $this->version = '1.3.0';
         $this->author = 'DYDAPS';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -175,6 +175,7 @@ final class DydapsConfigurablePacks extends Module
             'dydaps_pack_id_product' => $idProduct,
             'dydaps_pack_ajax_url' => $this->context->link->getModuleLink($this->name, 'ajax', ['ajax' => 1], (bool) Tools::usingSecureMode()),
             'dydaps_pack_ajax_token' => (new FrontAjaxToken($this->context))->getToken(),
+            'dydaps_pack_currency_sign' => isset($this->context->currency) ? (string) $this->context->currency->sign : '',
         ]);
 
         return (string) $this->fetch('module:' . $this->name . '/views/templates/front/configurator.tpl');
@@ -377,6 +378,63 @@ final class DydapsConfigurablePacks extends Module
         $order = $params['order'] ?? null;
 
         return $this->renderOrderSnapshot($order instanceof Order ? (int) $order->id : (int) ($params['id_order'] ?? 0), false);
+    }
+
+    /**
+     * Display the configured pack contents inside a cart product line.
+     *
+     * Only renders for cart lines that carry a native customization id and a
+     * matching stored module configuration, i.e. the pack container rows added
+     * through the front-office configurator.
+     *
+     * @param array<string, mixed> $params hook parameters containing the presented cart product
+     *
+     * @return string rendered pack details HTML, or an empty string when the line is not a configured pack
+     */
+    public function hookDisplayCartExtraProductInfo(array $params): string
+    {
+        try {
+            $product = $params['product'] ?? null;
+            if (!is_array($product)) {
+                return '';
+            }
+
+            $idProduct = (int) ($product['id_product'] ?? $product['id'] ?? 0);
+            $idCustomization = (int) ($product['id_customization'] ?? 0);
+            if ($idProduct <= 0 || $idCustomization <= 0) {
+                return '';
+            }
+
+            $cart = $this->context->cart;
+            if (!$cart instanceof Cart || !(int) $cart->id) {
+                return '';
+            }
+
+            $configuration = (new PackCartRepository())->getCartConfigurationByCustomization((int) $cart->id, $idCustomization);
+            if (!$configuration || (int) $configuration['id_product'] !== $idProduct) {
+                return '';
+            }
+
+            $configurationData = json_decode((string) ($configuration['configuration_json'] ?? ''), true);
+            if (!is_array($configurationData) || !isset($configurationData['components']) || !is_array($configurationData['components'])) {
+                return '';
+            }
+
+            $contents = $this->buildCartComponentLines((array) $configurationData['components']);
+            if (!$contents) {
+                return '';
+            }
+
+            $this->context->smarty->assign([
+                'dydaps_pack_cart_contents' => $contents,
+            ]);
+
+            return (string) $this->fetch('module:' . $this->name . '/views/templates/hook/cart_pack_details.tpl');
+        } catch (Throwable $e) {
+            $this->logError('Cart pack details rendering failed: ' . $e->getMessage());
+
+            return '';
+        }
     }
 
     /**
@@ -713,6 +771,61 @@ final class DydapsConfigurablePacks extends Module
     }
 
     /**
+     * Build human-readable component lines for the cart pack summary.
+     *
+     * Product labels are resolved in the current front-office language; the
+     * component slot label falls back to a numbered placeholder.
+     *
+     * @param list<array<string, mixed>> $components stored component selections
+     *
+     * @return list<array<string, mixed>> rendered component lines
+     */
+    private function buildCartComponentLines(array $components): array
+    {
+        $idLang = (int) $this->context->language->id;
+        $idShop = (int) $this->context->shop->id;
+        $lines = [];
+
+        foreach ($components as $component) {
+            $idProduct = (int) ($component['id_product'] ?? 0);
+            if ($idProduct <= 0) {
+                continue;
+            }
+
+            $product = new Product($idProduct, false, $idLang, $idShop);
+            if (!Validate::isLoadedObject($product)) {
+                continue;
+            }
+
+            $idComponent = (int) ($component['id_component'] ?? 0);
+            $idAttribute = (int) ($component['id_product_attribute'] ?? 0);
+            $componentName = '';
+            if ($idComponent > 0) {
+                $componentName = (string) (Db::getInstance()->getValue(
+                    'SELECT name FROM `' . _DB_PREFIX_ . 'dydaps_pack_component_lang`
+                    WHERE id_component = ' . $idComponent . ' AND id_lang = ' . $idLang
+                ) ?: ('Component #' . $idComponent));
+            }
+
+            $lines[] = [
+                'component_name' => $componentName,
+                'product_name' => (string) $product->name,
+                'attributes_text' => $idAttribute > 0 ? strip_tags(Product::getProductName($idProduct, $idAttribute, $idLang)) : '',
+                'reference' => $idAttribute > 0
+                    ? (string) (Db::getInstance()->getValue(
+                        'SELECT reference FROM `' . _DB_PREFIX_ . 'product_attribute`
+                        WHERE id_product_attribute = ' . $idAttribute
+                    ) ?: $product->reference)
+                    : (string) $product->reference,
+                'customization' => (string) ($component['customization'] ?? ''),
+                'quantity' => max(1, (int) ($component['quantity'] ?? 1)),
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
      * Resolve an order id from email template variables.
      *
      * @param array<string, mixed> $templateVars email template variables
@@ -814,6 +927,7 @@ final class DydapsConfigurablePacks extends Module
             'displayAdminOrderMain',
             'displayAdminOrderSide',
             'displayOrderDetail',
+            'displayCartExtraProductInfo',
             'actionOrderStatusPostUpdate',
             'actionProductCancel',
             'actionOrderSlipAdd',

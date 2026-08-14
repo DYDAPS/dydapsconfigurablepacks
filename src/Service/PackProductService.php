@@ -21,6 +21,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+
 /**
  * Creates and updates the native PrestaShop product backing a configurable pack.
  *
@@ -70,6 +72,70 @@ final class PackProductService
     }
 
     /**
+     * Set the pack product cover image from an uploaded file.
+     *
+     * The file is validated, added as a legacy image with the first available
+     * position, resized into the product image folder and its generated types
+     * are regenerated so the front-office cover renders in every size.
+     *
+     * @param int $idProduct pack product identifier
+     * @param UploadedFile $file uploaded image file
+     * @param int $idShop pack shop identifier
+     *
+     * @return void
+     */
+    public function setCoverImage(int $idProduct, UploadedFile $file, int $idShop): void
+    {
+        $fileData = [
+            'name' => $file->getClientOriginalName(),
+            'type' => $file->getClientMimeType(),
+            'tmp_name' => $file->getPathname(),
+            'error' => $file->getError(),
+            'size' => $file->getSize(),
+        ];
+        $uploadError = \ImageManager::validateUpload($fileData);
+        if ($uploadError !== false) {
+            throw new \RuntimeException(is_string($uploadError) ? $uploadError : 'The uploaded cover image is invalid.');
+        }
+        if (!\ImageManager::isCorrectImageFileExt($fileData['name'])) {
+            throw new \RuntimeException('The uploaded cover image format is not supported.');
+        }
+
+        if (!is_dir(_PS_PRODUCT_IMG_DIR_)) {
+            @mkdir(_PS_PRODUCT_IMG_DIR_, 0777, true);
+        }
+
+        $image = new \Image();
+        $image->id_product = (int) $idProduct;
+        $image->position = (int) \Image::getHighestPosition($idProduct) + 1;
+        $image->cover = true;
+        if (!$image->add()) {
+            throw new \RuntimeException('Unable to create the pack product image.');
+        }
+
+        $imagePath = _PS_PRODUCT_IMG_DIR_ . $image->getImgFolder() . (int) $image->id . '.jpg';
+        if (!\ImageManager::resize($fileData['tmp_name'], $imagePath)) {
+            $image->delete();
+            throw new \RuntimeException('Unable to resize the pack cover image.');
+        }
+
+        foreach (\ImageType::getImagesTypes('products') as $imageType) {
+            \ImageManager::resize(
+                $imagePath,
+                _PS_PRODUCT_IMG_DIR_ . $image->getImgFolder() . (int) $image->id . '-' . (string) $imageType['name'] . '.jpg',
+                (int) $imageType['width'],
+                (int) $imageType['height']
+            );
+        }
+
+        $db = \Db::getInstance();
+        $db->update('image', ['cover' => 0], 'id_product = ' . (int) $idProduct);
+        $db->update('image', ['cover' => 1], 'id_image = ' . (int) $image->id);
+        $db->update('image_shop', ['cover' => 0], 'id_product = ' . (int) $idProduct . ' AND id_shop = ' . (int) $idShop);
+        $db->update('image_shop', ['cover' => 1], 'id_image = ' . (int) $image->id . ' AND id_shop = ' . (int) $idShop);
+    }
+
+    /**
      * Compute the effective tax rate of a tax rules group for the shop country.
      *
      * @param int $idTaxRulesGroup tax rules group identifier
@@ -98,6 +164,10 @@ final class PackProductService
     /**
      * Fill the Product model with the submitted catalog and pricing data.
      *
+     * Content fields are stored per language with a fallback to the default
+     * language value, and the delivery time type is mapped to the native
+     * additional_delivery_times product setting.
+     *
      * @param \Product $product product model to mutate
      * @param array<string, mixed> $data form payload
      * @param int $idShop pack shop identifier
@@ -106,21 +176,16 @@ final class PackProductService
      */
     private function applyProductData(\Product $product, array $data, int $idShop): void
     {
-        $name = trim((string) ($data['product_name'] ?? ''));
-        $linkRewrite = trim((string) ($data['link_rewrite'] ?? ''));
-        if ($linkRewrite === '') {
-            $linkRewrite = $this->slugify($name !== '' ? $name : 'pack-' . time());
-        }
-
-        foreach (\Language::getLanguages(false) as $lang) {
-            $idLang = (int) $lang['id_lang'];
-            $product->name[$idLang] = $name;
-            $product->description[$idLang] = (string) ($data['product_description'] ?? '');
-            $product->description_short[$idLang] = (string) ($data['product_summary'] ?? '');
-            $product->meta_title[$idLang] = (string) ($data['meta_title'] ?? '');
-            $product->meta_description[$idLang] = (string) ($data['meta_description'] ?? '');
-            $product->link_rewrite[$idLang] = $linkRewrite;
-            $product->delivery_in_stock[$idLang] = (string) ($data['delivery_time'] ?? '');
+        $idLangDefault = (int) \Configuration::get('PS_LANG_DEFAULT');
+        $names = is_array($data['product_name'] ?? null) ? $data['product_name'] : [];
+        $name = trim((string) ($names[$idLangDefault] ?? ''));
+        if ($name === '') {
+            foreach ($names as $value) {
+                $name = trim((string) $value);
+                if ($name !== '') {
+                    break;
+                }
+            }
         }
 
         $reference = trim((string) ($data['reference'] ?? ''));
@@ -138,10 +203,52 @@ final class PackProductService
         $product->show_price = true;
         $product->visibility = 'both';
         $product->is_virtual = false;
-        $product->additional_delivery_times = 2;
+        $deliveryTimeType = (string) ($data['delivery_time_type'] ?? 'default');
+        $product->additional_delivery_times = $deliveryTimeType === 'none' ? 0 : ($deliveryTimeType === 'specific' ? 2 : 1);
         if (property_exists($product, 'product_type')) {
             $product->product_type = 'standard';
         }
+
+        foreach (\Language::getLanguages(false) as $lang) {
+            $idLang = (int) $lang['id_lang'];
+            $langName = trim((string) ($names[$idLang] ?? $name));
+            if ($langName === '') {
+                $langName = $name;
+            }
+            $linkRewrite = $this->langValue($data, 'link_rewrite', $idLang);
+            if ($linkRewrite === '') {
+                $linkRewrite = $this->slugify($langName !== '' ? $langName : 'pack-' . time());
+            }
+            $product->name[$idLang] = $langName;
+            $product->description[$idLang] = $this->langValue($data, 'product_description', $idLang);
+            $product->description_short[$idLang] = $this->langValue($data, 'product_summary', $idLang);
+            $product->meta_title[$idLang] = $this->langValue($data, 'meta_title', $idLang);
+            $product->meta_description[$idLang] = $this->langValue($data, 'meta_description', $idLang);
+            $product->link_rewrite[$idLang] = $linkRewrite;
+            $product->delivery_in_stock[$idLang] = $this->langValue($data, 'delivery_in_stock', $idLang);
+            $product->delivery_out_stock[$idLang] = $this->langValue($data, 'delivery_out_stock', $idLang);
+        }
+    }
+
+    /**
+     * Read one language value from a multilingual form field.
+     *
+     * @param array<string, mixed> $data form payload
+     * @param string $key multilingual field key
+     * @param int $idLang language identifier
+     *
+     * @return string language value, or an empty string when missing
+     */
+    private function langValue(array $data, string $key, int $idLang): string
+    {
+        $values = $data[$key] ?? null;
+        if (!is_array($values)) {
+            return '';
+        }
+        $value = $values[$idLang] ?? '';
+        $value = is_string($value) ? $value : (string) $value;
+
+        return $value;
     }
 
     /**

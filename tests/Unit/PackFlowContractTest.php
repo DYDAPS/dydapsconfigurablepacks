@@ -119,4 +119,24 @@ try {
 }
 assert($rejected, 'Invalid client component quantities must be rejected before normalization.');
 
+$packCustomized = new PackConfiguration(100, [
+    ['id_component' => 10, 'id_product' => 200, 'id_product_attribute' => 501, 'quantity' => 1, 'customization' => 'Engraved: John'],
+]);
+$packCustomizedAgain = new PackConfiguration(100, [
+    ['id_component' => 10, 'id_product' => 200, 'id_product_attribute' => 501, 'quantity' => 1, 'customization' => 'Engraved: John'],
+]);
+assert($hashGenerator->generate($packM) !== $hashGenerator->generate($packCustomized), 'Customized and plain configurations must create distinct logical cart rows.');
+assert($hashGenerator->generate($packCustomized) === $hashGenerator->generate($packCustomizedAgain), 'Adding the same customized configuration twice must target the same logical row.');
+
+$customized = $configurationService->fromRequest([
+    'components' => [[
+        'id_component' => 10,
+        'id_product' => 200,
+        'id_product_attribute' => 501,
+        'quantity' => 1,
+        'customization' => '  Engraved: <b>John</b>  ',
+    ]],
+], 100, 1);
+assert(($customized->getComponents()[0]['customization'] ?? '') === 'Engraved: John', 'Component customization must be normalized and stripped of tags.');
+
 echo "Pack flow contract tests passed.\n";

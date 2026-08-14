@@ -1,117 +1,249 @@
 {% extends '@PrestaShop/Admin/layout.html.twig' %}
 {% import '@Modules/dydapsconfigurablepacks/views/templates/admin/_form_macros.html.twig' as dydapsForms %}
+{% form_theme form '@PrestaShop/Admin/TwigTemplateForm/prestashop_ui_kit.html.twig' %}
 
 {% block content %}
   {% include '@Modules/dydapsconfigurablepacks/views/templates/admin/_tabs.html.twig' with {'active': active, 'permissions': permissions} %}
+
+  {{ form_start(form, { attr: { novalidate: 'novalidate' } }) }}
+  {% do form.categories.setRendered() %}
 
   <div class="card">
     <h3 class="card-header">
       {{ layoutTitle }}
     </h3>
     <div class="card-body">
-      {{ form_start(form) }}
 
-      <h4>{{ 'Product'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
-      {{ dydapsForms.form_group(form.product_name, canUpdate) }}
-      {{ dydapsForms.form_group(form.product_summary, canUpdate) }}
-      {{ dydapsForms.form_group(form.product_description, canUpdate) }}
+      <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item">
+          <button type="button" class="nav-link active" role="tab" data-dydaps-tab="basics">{{ 'Basics'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" role="tab" data-dydaps-tab="content">{{ 'Content'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" role="tab" data-dydaps-tab="catalog">{{ 'Catalog'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" role="tab" data-dydaps-tab="shipping">{{ 'Shipping'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" role="tab" data-dydaps-tab="pricing">{{ 'Pricing'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" role="tab" data-dydaps-tab="pack_settings">{{ 'Pack settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" role="tab" data-dydaps-tab="seo">{{ 'Search engine optimization'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link" role="tab" data-dydaps-tab="components">{{ 'Pack components'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
+        </li>
+      </ul>
 
-      <h4>{{ 'Catalog'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
-      {{ dydapsForms.form_group(form.reference, canUpdate) }}
-      {{ dydapsForms.form_group(form.link_rewrite, canUpdate) }}
-      {{ dydapsForms.form_group(form.categories, canUpdate) }}
-      {{ dydapsForms.form_group(form.default_category, canUpdate) }}
-      {{ dydapsForms.form_group(form.accessories, canUpdate) }}
-      <div class="row">
-        <div class="col-md-3">{{ dydapsForms.form_group(form.width, canUpdate) }}</div>
-        <div class="col-md-3">{{ dydapsForms.form_group(form.height, canUpdate) }}</div>
-        <div class="col-md-3">{{ dydapsForms.form_group(form.depth, canUpdate) }}</div>
-        <div class="col-md-3">{{ dydapsForms.form_group(form.weight, canUpdate) }}</div>
-      </div>
-      {{ dydapsForms.form_group(form.delivery_time, canUpdate) }}
+      <div class="dydaps-form-panels">
 
-      <h4>{{ 'Pricing'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
-      <div class="form-group">
-        <div class="form-label">
-          {{ form_label(form.price_tax_excl) }}
-        </div>
-        <div class="form-field">
-          <div class="input-group">
-            {{ form_widget(form.price_tax_excl, canUpdate ? {} : { attr: { disabled: 'disabled' } }) }}
-            <span class="input-group-append">
-              <span class="input-group-text" id="dydaps-ttc-preview">0.00</span>
-            </span>
+        <div class="dydaps-section is-active" data-dydaps-panel="basics">
+          <div class="dydaps-section__header">
+            <h4>{{ 'Basics'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
-          {{ form_errors(form.price_tax_excl) }}
-          <small class="form-text text-muted">
-            {{ 'Price including tax is computed from the selected tax rules.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-          </small>
+          <div class="dydaps-section__body">
+            {{ dydapsForms.translatable_group(form.product_name, defaultLocaleId) }}
+            <div class="form-group">
+              <div class="form-label">
+                {{ form_label(form.cover_image) }}
+              </div>
+              <div class="form-field">
+                <div class="dydaps-cover">
+                  {% if hasCoverImage %}
+                    <img class="dydaps-cover__image" src="{{ coverImageUrl }}" alt="">
+                  {% else %}
+                    <div class="dydaps-cover__empty">
+                      {{ 'No cover image yet.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+                    </div>
+                  {% endif %}
+                </div>
+                {{ form_widget(form.cover_image, { attr: { class: 'form-control-file' } }) }}
+                {{ form_errors(form.cover_image) }}
+                {% if form.cover_image.vars.help is not empty %}
+                  <small class="form-text text-muted">
+                    {{ form.cover_image.vars.help }}
+                  </small>
+                {% endif %}
+              </div>
+            </div>
+            {{ dydapsForms.form_group(form.reference, canUpdate) }}
+          </div>
         </div>
-      </div>
-      {{ dydapsForms.form_group(form.tax_rules_group, canUpdate) }}
 
-      <h4>{{ 'Search engine optimization'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
-      {{ dydapsForms.form_group(form.meta_title, canUpdate) }}
-      {{ dydapsForms.form_group(form.meta_description, canUpdate) }}
-
-      <h4>{{ 'Pack settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
-      {{ dydapsForms.form_group(form.pack_type, canUpdate) }}
-      {{ dydapsForms.form_group(form.pricing_method, canUpdate) }}
-
-      {% for pricing in [
-        { 'field': form.fixed_price_tax_excl, 'method': 'fixed' },
-        { 'field': form.forced_price_tax_excl, 'method': 'forced' },
-        { 'field': form.global_discount_percent, 'method': 'percent_discount' },
-        { 'field': form.global_discount_amount_tax_excl, 'method': 'fixed_discount' }
-      ] %}
-        <div data-pricing-field-wrapper="{{ pricing.method }}">
-          {{ dydapsForms.form_group(pricing.field, canUpdate) }}
+        <div class="dydaps-section" data-dydaps-panel="content">
+          <div class="dydaps-section__header">
+            <h4>{{ 'Content'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+          </div>
+          <div class="dydaps-section__body">
+            {{ dydapsForms.translatable_group(form.product_summary, defaultLocaleId) }}
+            {{ dydapsForms.translatable_group(form.product_description, defaultLocaleId) }}
+          </div>
         </div>
-      {% endfor %}
 
-      {{ dydapsForms.form_group(form.stock_behavior, canUpdate) }}
-      {{ form_widget(form.components_json) }}
-
-      <div
-        class="dydaps-pack-builder"
-        data-pack-builder
-        data-products-url="{{ path('dydaps_configurable_packs_product_search') }}"
-        data-can-update="{{ canUpdate ? '1' : '0' }}"
-        data-label-component="{{ 'Component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-search-product="{{ 'Search product or reference'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-add-product="{{ 'Add product'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-remove="{{ 'Remove'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-required="{{ 'Required'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-optional="{{ 'Optional'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-quantity="{{ 'Quantity'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-no-products="{{ 'No product selected yet.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-no-results="{{ 'No matching products found.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-up="{{ 'Move up'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-        data-label-down="{{ 'Move down'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
-      >
-        <div class="dydaps-pack-builder__header">
-          <h4>{{ 'Pack components'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
-          <button type="button" class="btn btn-outline-primary" data-pack-builder-add-component>
-            {{ 'Add component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-          </button>
+        <div class="dydaps-section" data-dydaps-panel="catalog">
+          <div class="dydaps-section__header">
+            <h4>{{ 'Catalog'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+          </div>
+          <div class="dydaps-section__body">
+            <div class="form-group">
+              <div class="form-label">
+                {{ form_label(form.categories) }}
+              </div>
+              <div class="form-field">
+                <div class="dydaps-category-tree-wrapper">
+                  {{ dydapsForms.category_checkboxes(categoryTree, selectedCategories) }}
+                </div>
+                {{ form_errors(form.categories) }}
+                <small class="form-text text-muted">
+                  {{ 'Select the shop categories this pack appears in.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+                </small>
+              </div>
+            </div>
+            {{ dydapsForms.form_group(form.default_category, canUpdate) }}
+            <div class="form-group">
+              <div class="form-label">
+                {{ form_label(form.accessories) }}
+              </div>
+              <div class="form-field">
+                {{ form_widget(form.accessories, { attr: { 'data-toggle': 'select2', 'class': 'form-control dydaps-associated-select' } }) }}
+                {{ form_errors(form.accessories) }}
+                <small class="form-text text-muted">
+                  {{ 'Select the products to display as associated products on the pack product page.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+                </small>
+              </div>
+            </div>
+          </div>
         </div>
-        <p class="text-muted">
-          {{ 'Choose one product per pack component and its quantity.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-        </p>
-        <div data-pack-builder-components></div>
+
+        <div class="dydaps-section" data-dydaps-panel="shipping">
+          <div class="dydaps-section__header">
+            <h4>{{ 'Shipping'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+          </div>
+          <div class="dydaps-section__body">
+            <div class="row">
+              <div class="col-md-3">{{ dydapsForms.form_group(form.width, canUpdate) }}</div>
+              <div class="col-md-3">{{ dydapsForms.form_group(form.height, canUpdate) }}</div>
+              <div class="col-md-3">{{ dydapsForms.form_group(form.depth, canUpdate) }}</div>
+              <div class="col-md-3">{{ dydapsForms.form_group(form.weight, canUpdate) }}</div>
+            </div>
+            {{ dydapsForms.form_group(form.delivery_time_type, canUpdate) }}
+            <div data-delivery-specific-wrapper>
+              {{ dydapsForms.translatable_group(form.delivery_in_stock, defaultLocaleId) }}
+              {{ dydapsForms.translatable_group(form.delivery_out_stock, defaultLocaleId) }}
+            </div>
+          </div>
+        </div>
+
+        <div class="dydaps-section" data-dydaps-panel="pricing">
+          <div class="dydaps-section__header">
+            <h4>{{ 'Pricing'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+          </div>
+          <div class="dydaps-section__body">
+            <div class="row">
+              <div class="col-md-6">{{ dydapsForms.form_group(form.price_tax_excl, canUpdate) }}</div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <div class="form-label">
+                    {{ form_label(form.price_tax_incl) }}
+                  </div>
+                  <div class="form-field">
+                    {{ form_widget(form.price_tax_incl, { attr: { 'data-price-ttc': '' } }) }}
+                    {{ form_errors(form.price_tax_incl) }}
+                    <small class="form-text text-muted">
+                      {{ 'Editing the tax-inclusive price recalculates the tax-exclusive price from the tax rules group.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {{ dydapsForms.form_group(form.tax_rules_group, canUpdate) }}
+            {{ dydapsForms.form_group(form.pricing_method, canUpdate) }}
+          </div>
+        </div>
+
+        <div class="dydaps-section" data-dydaps-panel="pack_settings">
+          <div class="dydaps-section__header">
+            <h4>{{ 'Pack settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+          </div>
+          <div class="dydaps-section__body">
+            {{ dydapsForms.form_group(form.pack_type, canUpdate) }}
+            {{ dydapsForms.form_group(form.stock_behavior, canUpdate) }}
+          </div>
+        </div>
+
+        <div class="dydaps-section" data-dydaps-panel="seo">
+          <div class="dydaps-section__header">
+            <h4>{{ 'Search engine optimization'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+          </div>
+          <div class="dydaps-section__body">
+            {{ dydapsForms.translatable_group(form.link_rewrite, defaultLocaleId) }}
+            {{ dydapsForms.translatable_group(form.meta_title, defaultLocaleId) }}
+            {{ dydapsForms.translatable_group(form.meta_description, defaultLocaleId) }}
+          </div>
+        </div>
+
+        <div class="dydaps-section" data-dydaps-panel="components">
+          <div class="dydaps-section__header">
+            <h4>{{ 'Pack components'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
+          </div>
+          <div class="dydaps-section__body">
+            {{ form_widget(form.components_json) }}
+            <div
+              class="dydaps-pack-builder"
+              data-pack-builder
+              data-products-url="{{ productSearchUrl }}"
+              data-can-update="1"
+              data-label-component="{{ 'Component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-search-product="{{ 'Search product or reference'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-search-error="{{ 'Product search failed. Please try again.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-add-product="{{ 'Add product'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-remove="{{ 'Remove'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-required="{{ 'Required'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-optional="{{ 'Optional'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-quantity="{{ 'Quantity'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-no-products="{{ 'No product selected yet.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-no-results="{{ 'No matching products found.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-up="{{ 'Move up'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-down="{{ 'Move down'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-customization="{{ 'Allow product customization'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-no-customization="{{ 'This product does not support customization.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-combinations="{{ 'Allowed combinations'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-all-combinations="{{ 'All combinations'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-show-more="{{ 'Show more'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+            >
+              <div class="dydaps-pack-builder__header">
+                <button type="button" class="btn btn-outline-primary" data-pack-builder-add-component>
+                  {{ 'Add component'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+                </button>
+              </div>
+              <p class="text-muted">
+                {{ 'Choose one product per pack component, the combinations customers may select, and its quantity.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+              </p>
+              <div data-pack-builder-components></div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <div class="card-footer">
-        <a class="btn btn-outline-secondary" href="{{ path('dydaps_configurable_packs_index') }}">
-          {{ 'Cancel'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-        </a>
-        <button class="btn btn-primary" type="submit">
-          {{ 'Save'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
-        </button>
-      </div>
-      {{ form_end(form) }}
+    </div>
+    <div class="card-footer">
+      <a class="btn btn-outline-secondary" href="{{ path('dydaps_configurable_packs_index') }}">
+        {{ 'Cancel'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+      </a>
+      <button class="btn btn-primary" type="submit">
+        {{ 'Save'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+      </button>
     </div>
   </div>
+
+  {{ form_end(form) }}
 
   <script>
     (function () {
@@ -121,37 +253,138 @@
         return;
       }
 
-      var pricing = form.querySelector('[name="pack_general[pricing_method]"]');
-      var wrappers = Array.prototype.slice.call(form.querySelectorAll('[data-pricing-field-wrapper]'));
-      function applyPricing() {
-        var selected = pricing ? pricing.value : '';
-        wrappers.forEach(function (wrapper) {
-          wrapper.style.display = wrapper.getAttribute('data-pricing-field-wrapper') === selected ? '' : 'none';
+      var tabButtons = form.querySelectorAll('[data-dydaps-tab]');
+      var tabPanels = form.querySelectorAll('[data-dydaps-panel]');
+      function showFormTab(key) {
+        tabButtons.forEach(function (button) {
+          button.classList.toggle('active', button.getAttribute('data-dydaps-tab') === key);
+        });
+        tabPanels.forEach(function (panel) {
+          panel.classList.toggle('is-active', panel.getAttribute('data-dydaps-panel') === key);
         });
       }
-      if (pricing) {
-        pricing.addEventListener('change', applyPricing);
-      }
-      applyPricing();
+      tabButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          showFormTab(button.getAttribute('data-dydaps-tab'));
+        });
+      });
+
+      form.querySelectorAll('[data-dydaps-locales]').forEach(function (locales) {
+        var localeTabs = locales.querySelectorAll('.dydaps-locales__tab');
+        var localePanes = locales.querySelectorAll('.dydaps-locales__pane');
+        function showLocaleTab(tab) {
+          var locale = tab.getAttribute('data-dydaps-locale');
+          localeTabs.forEach(function (candidate) {
+            candidate.classList.toggle('is-active', candidate === tab);
+          });
+          localePanes.forEach(function (pane) {
+            pane.classList.toggle('is-active', pane.getAttribute('data-dydaps-pane') === locale);
+          });
+        }
+        localeTabs.forEach(function (tab) {
+          tab.addEventListener('click', function () {
+            showLocaleTab(tab);
+          });
+        });
+      });
 
       var priceInput = form.querySelector('[name="pack_general[price_tax_excl]"]');
       var taxSelect = form.querySelector('[name="pack_general[tax_rules_group]"]');
-      var preview = document.getElementById('dydaps-ttc-preview');
+      var ttcInput = form.querySelector('[name="pack_general[price_tax_incl]"]');
+      function currentRate() {
+        return taxSelect ? (parseFloat(taxRates[taxSelect.value]) || 0) : 0;
+      }
       function applyTtc() {
-        if (!priceInput || !taxSelect || !preview) {
+        if (!priceInput || !ttcInput) {
           return;
         }
         var price = parseFloat(priceInput.value) || 0;
-        var rate = parseFloat(taxRates[taxSelect.value]) || 0;
-        preview.textContent = (price * (1 + rate / 100)).toFixed(2);
+        ttcInput.value = (price * (1 + currentRate() / 100)).toFixed(2);
+      }
+      function applyHt() {
+        if (!priceInput || !ttcInput) {
+          return;
+        }
+        var ttc = parseFloat(ttcInput.value) || 0;
+        priceInput.value = (ttc / (1 + currentRate() / 100)).toFixed(6);
       }
       if (priceInput) {
         priceInput.addEventListener('input', applyTtc);
+      }
+      if (ttcInput) {
+        ttcInput.addEventListener('input', applyHt);
       }
       if (taxSelect) {
         taxSelect.addEventListener('change', applyTtc);
       }
       applyTtc();
+
+      var deliveryType = form.querySelector('[name="pack_general[delivery_time_type]"]');
+      var specificWrapper = form.querySelector('[data-delivery-specific-wrapper]');
+      function applyDeliveryType() {
+        if (!deliveryType || !specificWrapper) {
+          return;
+        }
+        specificWrapper.style.display = deliveryType.value === 'specific' ? '' : 'none';
+      }
+      if (deliveryType) {
+        deliveryType.addEventListener('change', applyDeliveryType);
+      }
+      applyDeliveryType();
+
+      var defaultCategorySelect = form.querySelector('[name="pack_general[default_category]"]');
+      var categoryCheckboxes = form.querySelectorAll('[data-default-category-id]');
+      function applyDefaultCategory() {
+        if (!defaultCategorySelect) {
+          return;
+        }
+        var firstChecked = null;
+        categoryCheckboxes.forEach(function (checkbox) {
+          if (checkbox.checked && firstChecked === null) {
+            firstChecked = checkbox.getAttribute('data-default-category-id');
+          }
+        });
+        if (firstChecked !== null && !defaultCategorySelect.value) {
+          defaultCategorySelect.value = firstChecked;
+        }
+      }
+      categoryCheckboxes.forEach(function (checkbox) {
+        checkbox.addEventListener('change', applyDefaultCategory);
+      });
+
+      var defaultLangInput = form.querySelector('.dydaps-pack-name[data-name-default-lang]');
+      var friendlyInputs = form.querySelectorAll('.dydaps-friendly-url');
+      function slugify(value) {
+        return String(value)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
+      if (defaultLangInput && friendlyInputs.length) {
+        defaultLangInput.addEventListener('blur', function () {
+          var current = form.querySelector('.dydaps-friendly-url');
+          if (current && !current.value) {
+            current.value = slugify(defaultLangInput.value);
+          }
+        });
+      }
+
+      var associatedSelect = form.querySelector('select.dydaps-associated-select');
+      if (associatedSelect && window.jQuery && jQuery.fn.select2 && !jQuery(associatedSelect).data('select2')) {
+        jQuery(associatedSelect).select2({width: '100%'});
+      }
+
+      if (tabPanels.length) {
+        var erroredPanel = null;
+        tabPanels.forEach(function (panel) {
+          if (!erroredPanel && panel.querySelector('.alert-danger, .text-danger, .has-error, .is-invalid')) {
+            erroredPanel = panel.getAttribute('data-dydaps-panel');
+          }
+        });
+        if (erroredPanel) {
+          showFormTab(erroredPanel);
+        }
+      }
     }());
   </script>
 {% endblock %}

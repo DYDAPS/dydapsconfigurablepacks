@@ -36,7 +36,11 @@
   }
 
   /**
-   * Normalize a component into the simplified editable shape.
+   * Normalize a component into the editable shape.
+   *
+   * A component references one selectable product, the list of combination
+   * identifiers the merchant allows, and whether product customization is
+   * enabled for the front-office configurator.
    *
    * @param {Object} component
    * @param {number} index
@@ -54,7 +58,13 @@
       quantity: Math.max(1, parseInt(component.quantity || 1, 10)),
       optional: !!component.optional,
       component_type: component.component_type || 'choice',
-      position: index
+      position: index,
+      allowed_combinations: Array.isArray(component.allowed_combinations)
+        ? component.allowed_combinations.map(Number)
+        : [],
+      allow_customization: !!component.allow_customization,
+      has_customization: !!component.has_customization,
+      combinations: Array.isArray(component.combinations) ? component.combinations : []
     };
   }
 
@@ -172,7 +182,64 @@
         grid.appendChild(fieldBlock(label('required'), optional));
         card.appendChild(grid);
 
+        if (component.id_product > 0) {
+          card.appendChild(renderComponentOptions(component));
+        }
+
         return card;
+      }
+
+      function renderComponentOptions(component) {
+        var box = el('div', {'class': 'dydaps-pack-builder__options'});
+
+        if (component.combinations.length) {
+          var combos = el('div', {'class': 'dydaps-pack-builder__combinations'});
+          combos.appendChild(el('strong', {}, label('combinations')));
+
+          component.combinations.forEach(function (combination) {
+            var item = el('label', {'class': 'dydaps-pack-builder__combination dydaps-pack-builder__check'});
+            var checkbox = el('input', {type: 'checkbox', class: 'dydaps-combination-check'});
+            var id = parseInt(combination.id_product_attribute, 10);
+            checkbox.checked = component.allowed_combinations.indexOf(id) !== -1;
+            checkbox.disabled = !canUpdate;
+            checkbox.addEventListener('change', function () {
+              if (checkbox.checked) {
+                if (component.allowed_combinations.indexOf(id) === -1) {
+                  component.allowed_combinations.push(id);
+                }
+              } else {
+                component.allowed_combinations = component.allowed_combinations.filter(function (allowed) {
+                  return allowed !== id;
+                });
+              }
+              serialize();
+            });
+            item.appendChild(checkbox);
+            item.appendChild(el('span', {}, combination.name || String(id)));
+            combos.appendChild(item);
+          });
+          box.appendChild(combos);
+        }
+
+        var custom = el('div', {'class': 'dydaps-pack-builder__customization'});
+        if (component.has_customization) {
+          var customItem = el('label', {'class': 'dydaps-pack-builder__check'});
+          var customCheck = el('input', {type: 'checkbox'});
+          customCheck.checked = component.allow_customization;
+          customCheck.disabled = !canUpdate;
+          customCheck.addEventListener('change', function () {
+            component.allow_customization = customCheck.checked;
+            serialize();
+          });
+          customItem.appendChild(customCheck);
+          customItem.appendChild(el('span', {}, label('customization')));
+          custom.appendChild(customItem);
+        } else {
+          custom.appendChild(el('small', {'class': 'text-muted'}, label('no-customization')));
+        }
+        box.appendChild(custom);
+
+        return box;
       }
 
       function renderProductPicker(component) {
@@ -207,17 +274,42 @@
           var separator = productsUrl.indexOf('?') === -1 ? '?' : '&';
           fetch(productsUrl + separator + 'q=' + encodeURIComponent(query), {credentials: 'same-origin'})
             .then(function (response) {
+              if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+              }
               return response.json();
             })
             .then(function (payload) {
+              if (!payload || payload.ok === false) {
+                throw new Error('invalid product search response');
+              }
               results.innerHTML = '';
-              if (!payload.products || !payload.products.length) {
+              var rows = payload.products || [];
+              if (!rows.length) {
                 results.appendChild(el('p', {'class': 'text-muted'}, label('no-results')));
                 return;
               }
-              payload.products.forEach(function (product) {
-                results.appendChild(renderSearchResult(component, product, results));
-              });
+              var visible = 6;
+              var renderRows = function () {
+                results.innerHTML = '';
+                rows.slice(0, visible).forEach(function (product) {
+                  results.appendChild(renderSearchResult(component, product, results));
+                });
+                if (rows.length > visible) {
+                  var more = el('button', {type: 'button', class: 'btn btn-sm btn-outline-secondary'}, label('show-more') + ' (' + (rows.length - visible) + ')');
+                  more.disabled = !canUpdate;
+                  more.addEventListener('click', function () {
+                    visible += 6;
+                    renderRows();
+                  });
+                  results.appendChild(more);
+                }
+              };
+              renderRows();
+            })
+            .catch(function () {
+              results.innerHTML = '';
+              results.appendChild(el('p', {'class': 'text-danger'}, label('search-error')));
             });
         });
 
@@ -231,6 +323,13 @@
         if (component.reference) {
           text.appendChild(el('small', {}, component.reference));
         }
+        if (component.combinations.length) {
+          text.appendChild(el(
+            'small',
+            {},
+            label('combinations') + ': ' + component.allowed_combinations.length + ' / ' + component.combinations.length
+          ));
+        }
         row.appendChild(text);
 
         var removeButton = el('button', {type: 'button', class: 'btn btn-sm btn-outline-danger'}, label('remove'));
@@ -239,6 +338,10 @@
           component.id_product = 0;
           component.name = '';
           component.reference = '';
+          component.allowed_combinations = [];
+          component.combinations = [];
+          component.allow_customization = false;
+          component.has_customization = false;
           render();
         });
         row.appendChild(removeButton);
@@ -250,19 +353,31 @@
         var row = el('div', {'class': 'dydaps-pack-builder__product dydaps-pack-builder__product--result'});
         var text = el('div');
         text.appendChild(el('strong', {}, product.name));
-        if (product.attributes_text) {
-          text.appendChild(el('span', {}, product.attributes_text));
-        }
         if (product.reference) {
           text.appendChild(el('small', {}, product.reference));
+        }
+        if (product.has_combinations) {
+          text.appendChild(el('small', {}, product.combinations.length + ' ' + label('combinations')));
         }
         row.appendChild(text);
 
         var addButton = el('button', {type: 'button', class: 'btn btn-sm btn-outline-primary'}, label('add-product'));
+        addButton.disabled = !canUpdate;
         addButton.addEventListener('click', function () {
           component.id_product = parseInt(product.id_product, 10);
-          component.name = product.name + (product.attributes_text ? ' (' + product.attributes_text + ')' : '');
+          component.name = product.name;
           component.reference = product.reference || '';
+          component.has_customization = !!product.has_customization;
+          component.combinations = (product.combinations || []).map(function (combination) {
+            return {
+              id_product_attribute: parseInt(combination.id_product_attribute, 10),
+              name: combination.name
+            };
+          });
+          component.allowed_combinations = component.combinations.map(function (combination) {
+            return combination.id_product_attribute;
+          });
+          component.allow_customization = component.has_customization;
           results.innerHTML = '';
           render();
         });

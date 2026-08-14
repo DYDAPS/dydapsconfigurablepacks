@@ -15,3 +15,72 @@
     </div>
   </div>
 {% endmacro %}
+
+{% macro translatable_group(field, defaultLocaleId) %}
+  <div class="form-group">
+    <div class="form-label">
+      {{ form_label(field) }}
+    </div>
+    <div class="form-field">
+      {% if field.vars.compound and field.children|length > 0 %}
+        <div class="dydaps-locales" data-dydaps-locales>
+          <div class="dydaps-locales__tabs" role="tablist">
+            {% for child in field %}
+              <button
+                type="button"
+                class="dydaps-locales__tab{% if child.vars.name == defaultLocaleId or loop.first %} is-active{% endif %}"
+                role="tab"
+                data-dydaps-locale="{{ child.vars.name }}"
+              >
+                {{ child.vars.label|upper }}
+              </button>
+            {% endfor %}
+          </div>
+          <div class="dydaps-locales__panes">
+            {% for child in field %}
+              <div
+                class="dydaps-locales__pane{% if child.vars.name == defaultLocaleId or loop.first %} is-active{% endif %}"
+                role="tabpanel"
+                data-dydaps-pane="{{ child.vars.name }}"
+              >
+                {{ form_widget(child) }}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        {{ form_widget(field) }}
+      {% endif %}
+      {{ form_errors(field) }}
+
+      {% if field.vars.help is not empty %}
+        <small class="form-text text-muted">
+          {{ field.vars.help }}
+        </small>
+      {% endif %}
+    </div>
+  </div>
+{% endmacro %}
+
+{% macro category_checkboxes(categories, selected) %}
+  {% import _self as self %}
+  <ul class="dydaps-category-tree">
+    {% for category in categories %}
+      <li>
+        <label class="dydaps-category-item">
+          <input
+            type="checkbox"
+            name="pack_general[categories][]"
+            value="{{ category.id_category }}"
+            {% if category.id_category in selected %}checked{% endif %}
+            data-default-category-id="{{ category.id_category }}"
+          >
+          <span>{{ category.name }}</span>
+        </label>
+        {% if category.children is defined and category.children is not empty %}
+          {{ self.category_checkboxes(category.children, selected) }}
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endmacro %}

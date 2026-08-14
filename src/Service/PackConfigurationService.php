@@ -40,7 +40,7 @@ final class PackConfigurationService
      *
      * @var array<int, string>
      */
-    private const ALLOWED_COMPONENT_KEYS = ['id_component', 'id_product', 'id_product_attribute', 'quantity'];
+    private const ALLOWED_COMPONENT_KEYS = ['id_component', 'id_product', 'id_product_attribute', 'quantity', 'customization'];
 
     /**
      * Convert decoded request data into a normalized configuration.
@@ -98,9 +98,27 @@ final class PackConfigurationService
                 'id_product' => (int) ($component['id_product'] ?? 0),
                 'id_product_attribute' => (int) ($component['id_product_attribute'] ?? 0),
                 'quantity' => $quantity,
+                'customization' => $this->normalizeCustomization($component['customization'] ?? null),
             ];
         }
 
         return new PackConfiguration($idProduct, $components, $packQuantity);
+    }
+
+    /**
+     * Normalize a customer customization text.
+     *
+     * @param mixed $customization submitted customization value
+     *
+     * @return string sanitized text, truncated to the module storage limit
+     */
+    private function normalizeCustomization($customization): string
+    {
+        $text = trim((string) $customization);
+        if ($text === '') {
+            return '';
+        }
+
+        return mb_substr(strip_tags($text), 0, 255);
     }
 }

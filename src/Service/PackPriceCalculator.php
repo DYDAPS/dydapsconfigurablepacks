@@ -135,7 +135,10 @@ final class PackPriceCalculator
      *     total_tax_incl: float,
      *     tax_rate: float,
      *     product_name: string,
-     *     product_reference: string
+     *     product_reference: string,
+     *     combination_reference: string,
+     *     attributes_text: string,
+     *     customization: string
      * }>
      */
     private function buildComponentPriceRows(PackConfiguration $configuration, int $idPack, int $idShop, int $idLang, int $idCurrency, int $idCustomer): array
@@ -175,6 +178,7 @@ final class PackPriceCalculator
                 'product_reference' => (string) $product->reference,
                 'combination_reference' => $idAttribute > 0 ? $this->repository->getCombinationReference($idAttribute) : '',
                 'attributes_text' => $idAttribute > 0 ? strip_tags(\Product::getProductName($idProduct, $idAttribute, $idLang)) : '',
+                'customization' => trim((string) ($component['customization'] ?? '')),
             ];
         }
 

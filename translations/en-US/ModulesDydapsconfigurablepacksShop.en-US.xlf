@@ -20,6 +20,14 @@
       <trans-unit id="tax"><source>Tax:</source><target>Tax:</target></trans-unit>
       <trans-unit id="recorded_refunds"><source>Recorded refunds:</source><target>Recorded refunds:</target></trans-unit>
       <trans-unit id="stock_restored"><source>Stock restored</source><target>Stock restored</target></trans-unit>
+      <trans-unit id="component_include"><source>Include</source><target>Include</target></trans-unit>
+      <trans-unit id="component_quantity"><source>Quantity</source><target>Quantity</target></trans-unit>
+      <trans-unit id="select_variant"><source>Select a combination</source><target>Select a combination</target></trans-unit>
+      <trans-unit id="customization"><source>Customization</source><target>Customization</target></trans-unit>
+      <trans-unit id="customization_placeholder"><source>Customize this component (optional)</source><target>Customize this component (optional)</target></trans-unit>
+      <trans-unit id="loading_configuration"><source>Loading pack configuration...</source><target>Loading pack configuration...</target></trans-unit>
+      <trans-unit id="pack_price"><source>Pack price:</source><target>Pack price:</target></trans-unit>
+      <trans-unit id="pack_contents"><source>Pack contents:</source><target>Pack contents:</target></trans-unit>
     </body>
   </file>
 </xliff>

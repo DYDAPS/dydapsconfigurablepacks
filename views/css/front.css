@@ -13,20 +13,60 @@
  * @license   https://opensource.org/licenses/OSL-3.0 Open Software License (OSL 3.0)
  */
 .dydaps-pack-configurator {
-  border: 1px solid #d6d8db;
-  padding: 1rem;
-  margin: 1rem 0;
+  background: #fff;
+  border: 1px solid #e3e6ea;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+  margin: 1.5rem 0;
+  overflow: hidden;
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.dydaps-pack-configurator__title {
+  border-bottom: 1px solid #eef0f3;
+  color: #232323;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  padding-bottom: .75rem;
+}
+
+.dydaps-pack-configurator__body {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
 }
 
 .dydaps-pack-configurator__component {
-  margin-bottom: .75rem;
+  background: #fafbfc;
+  border: 1px solid #e3e6ea;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.dydaps-pack-configurator__component h3 {
+  counter-increment: dydaps-step;
+  font-size: .95rem;
+  font-weight: 600;
+  margin: 0 0 .6rem;
+}
+
+.dydaps-pack-configurator__component h3::before {
+  content: counter(dydaps-step) '. ';
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.dydaps-pack-configurator__body {
+  counter-reset: dydaps-step;
 }
 
 .dydaps-pack-configurator__include {
-  display: inline-flex;
   align-items: center;
+  display: inline-flex;
+  font-size: .9rem;
   gap: .4rem;
-  margin-bottom: .35rem;
+  margin-bottom: .5rem;
 }
 
 .dydaps-pack-configurator__product {
@@ -44,19 +84,125 @@
   min-width: 0;
 }
 
+.dydaps-pack-configurator__product-text span {
+  color: #555;
+  font-size: .9rem;
+}
+
 .dydaps-pack-configurator__product-text small {
   color: #6c757d;
 }
 
-.dydaps-pack-configurator__availability--ok {
-  color: #28a745;
+.dydaps-pack-configurator__availability {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: .78rem;
+  font-weight: 500;
+  line-height: 1;
+  padding: .3rem .65rem;
+  white-space: nowrap;
 }
 
-.dydaps-pack-configurator__availability--no,
+.dydaps-pack-configurator__availability--ok {
+  background: #e8f6ec;
+  color: #1a7f37;
+}
+
+.dydaps-pack-configurator__availability--no {
+  background: #fdecec;
+  color: #c0392b;
+}
+
 .dydaps-pack-configurator__unavailable {
-  color: #dc3545;
+  color: #c0392b;
+  font-size: .9rem;
+}
+
+.dydaps-pack-configurator__impact {
+  color: #232323;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dydaps-pack-configurator__quantity {
+  color: #6c757d;
+  font-size: .85rem;
+}
+
+.dydaps-pack-configurator__variant {
+  align-items: center;
+  display: flex;
+  font-size: .9rem;
+  gap: .6rem;
+  margin-bottom: .5rem;
+}
+
+.dydaps-pack-configurator__variant select,
+.dydaps-pack-configurator__customization textarea {
+  width: 100%;
+}
+
+.dydaps-pack-configurator__customization {
+  display: block;
+  font-size: .9rem;
+  margin-top: .6rem;
+}
+
+.dydaps-pack-configurator__customization span {
+  display: block;
+  margin-bottom: .3rem;
+}
+
+.dydaps-pack-configurator__summary {
+  background: #f8f9fa;
+  border: 1px solid #e3e6ea;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  padding: .75rem 1rem;
+  text-align: right;
+}
+
+.dydaps-pack-configurator__cta {
+  margin-top: .75rem;
+  width: 100%;
 }
 
 .dydaps-pack-configurator__message {
   margin-top: .75rem;
+}
+
+.dydaps-pack-configurator__message:empty {
+  display: none;
+}
+
+.dydaps-pack-cart {
+  background: #f8f9fa;
+  border: 1px solid #e3e6ea;
+  border-radius: 8px;
+  margin: .5rem 0;
+  padding: .65rem .85rem;
+}
+
+.dydaps-pack-cart__title {
+  color: #6c757d;
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  margin: 0 0 .4rem;
+  text-transform: uppercase;
+}
+
+.dydaps-pack-cart__components {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dydaps-pack-cart__components li {
+  color: #232323;
+  font-size: .9rem;
+  line-height: 1.5;
+  padding: .15rem 0;
 }

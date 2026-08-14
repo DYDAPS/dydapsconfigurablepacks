@@ -112,8 +112,9 @@ final class AjaxController
             return $this->json(['ok' => false, 'error' => $this->trans('Pack not found.')], 404);
         }
         $components = $this->repository->describeComponents((int) $pack['id_pack'], (int) $context->language->id, (int) $context->shop->id, (int) $context->currency->id, (int) $context->customer->id);
+        $packPriceTaxIncl = (float) \Product::getPriceStatic($idProduct, true, null, 6, null, false, true, 1, false, (int) $context->customer->id);
 
-        return $this->json(['ok' => true, 'pack' => $pack, 'components' => $components]);
+        return $this->json(['ok' => true, 'pack' => $pack, 'pack_price_tax_incl' => $packPriceTaxIncl, 'components' => $components]);
     }
 
     /**

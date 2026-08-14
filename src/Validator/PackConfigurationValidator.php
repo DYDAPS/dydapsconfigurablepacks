@@ -139,6 +139,11 @@ final class PackConfigurationValidator
                 continue;
             }
 
+            $customization = trim((string) ($selection['customization'] ?? ''));
+            if ($customization !== '' && !(int) ($component['allow_customization'] ?? 0)) {
+                $errors[] = 'Customization is not allowed for this pack component.';
+            }
+
             $quantity = (int) ($selection['quantity'] ?? $component['quantity']);
             if ($quantity <= 0) {
                 $errors[] = 'A selected component quantity is invalid.';
@@ -168,6 +173,7 @@ final class PackConfigurationValidator
                 'id_product' => (int) $matchedSelection['id_product'],
                 'id_product_attribute' => (int) $matchedSelection['id_product_attribute'],
                 'quantity' => $quantity,
+                'customization' => $customization,
             ];
         }
 

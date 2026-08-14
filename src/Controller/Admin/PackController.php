@@ -21,6 +21,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use Dydaps\ConfigurablePacks\Config\PackConfig;
 use Dydaps\ConfigurablePacks\Form\PackGeneralType;
 use Dydaps\ConfigurablePacks\Grid\Definition\Factory\PackGridDefinitionFactory;
 use Dydaps\ConfigurablePacks\Grid\Filters\PackFilters;
@@ -36,8 +37,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Back-office controller for configurable pack administration.
  *
- * It lists pack definitions in a PrestaShop grid and handles the first-level
- * create/edit/delete actions for pack metadata and pricing settings.
+ * It lists pack definitions in a PrestaShop grid and handles the create/edit
+ * actions for pack metadata, catalog content, shipping, pricing, SEO settings
+ * and the component composition.
  */
 final class PackController extends AbstractDydapsAdminController
 {
@@ -232,7 +234,10 @@ final class PackController extends AbstractDydapsAdminController
         $idProduct = (int) ($pack['id_product'] ?? 0);
 
         $data = $this->buildFormData($pack, $idProduct, $idShop, $idLang);
-        $form = $this->createForm(PackGeneralType::class, $data);
+        $form = $this->createForm(PackGeneralType::class, $data, [
+            'category_choices' => $this->getCategoryChoicesForForm($idLang, array_map('intval', (array) ($data['categories'] ?? []))),
+            'tax_rule_choices' => $this->getTaxRuleChoicesForForm(),
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -240,6 +245,17 @@ final class PackController extends AbstractDydapsAdminController
             $payload['id_pack'] = (int) ($pack['id_pack'] ?? 0);
             $payload['id_shop'] = $idShop;
             $payload['active'] = (int) ($pack['active'] ?? 1);
+
+            $validationError = $this->validatePayload($payload);
+            if ($validationError !== '') {
+                $this->addFlash('error', $validationError);
+
+                return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
+            }
+            $selectedCategories = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['categories'] ?? [])))));
+            if ((int) ($payload['default_category'] ?? 0) <= 0 && $selectedCategories) {
+                $payload['default_category'] = $selectedCategories[0];
+            }
 
             $components = json_decode((string) ($payload['components_json'] ?? '[]'), true);
             if (!is_array($components)) {
@@ -275,12 +291,35 @@ final class PackController extends AbstractDydapsAdminController
             }
             $payload['id_product'] = $idProduct;
 
+            $coverFile = $form->get('cover_image')->getData();
+            if ($coverFile instanceof \Symfony\Component\HttpFoundation\File\UploadedFile) {
+                try {
+                    $this->productService->setCoverImage($idProduct, $coverFile, $idShop);
+                } catch (\Throwable $e) {
+                    $this->addFlash('error', $this->t('Unable to upload the pack cover image.', 'Modules.Dydapsconfigurablepacks.Admin'));
+                }
+            }
+
             unset($payload['components_json']);
             $idPack = $this->repository->savePack($payload);
             $this->repository->replaceComponents($idPack, array_values($components), $idLang);
             $this->addFlash('success', $this->t('Pack configuration saved.', 'Modules.Dydapsconfigurablepacks.Admin'));
 
             return $this->redirectToRoute('dydaps_configurable_packs_index');
+        }
+
+        $currentData = is_array($form->getData()) ? $form->getData() : $data;
+        $selectedCategories = array_values(array_unique(array_filter(array_map('intval', (array) ($currentData['categories'] ?? [])))));
+        $selectedAccessories = $this->getSelectedAccessories((array) ($currentData['accessories'] ?? []), $idLang);
+
+        $coverImageUrl = '';
+        $hasCoverImage = false;
+        if ($idProduct > 0) {
+            $cover = \Product::getCover($idProduct);
+            if (is_array($cover) && isset($cover['id_image'])) {
+                $coverImageUrl = (string) $this->getContext()->link->getImageLink('dydaps-pack-cover-' . $idProduct, (int) $cover['id_image'], 'home_default');
+                $hasCoverImage = true;
+            }
         }
 
         return $this->render('@Modules/dydapsconfigurablepacks/views/templates/admin/pack_form.html.twig', [
@@ -290,6 +329,13 @@ final class PackController extends AbstractDydapsAdminController
             'canUpdate' => true,
             'permissions' => $this->getAdminPermissions($request),
             'taxRates' => $this->getTaxRateMap(),
+            'categoryTree' => $this->getCategoryTree($idLang),
+            'selectedCategories' => $selectedCategories,
+            'selectedAccessories' => $selectedAccessories,
+            'coverImageUrl' => $coverImageUrl,
+            'hasCoverImage' => $hasCoverImage,
+            'defaultLocaleId' => (int) $this->getContext()->language->id,
+            'productSearchUrl' => $this->generateUrl('dydaps_configurable_packs_product_search'),
         ]);
     }
 
@@ -305,14 +351,15 @@ final class PackController extends AbstractDydapsAdminController
      */
     private function buildFormData(?array $pack, int $idProduct, int $idShop, int $idLang): array
     {
+        $languages = \Language::getLanguages(false);
         $data = [
             'id_product' => $idProduct,
             'id_shop' => $idShop,
-            'product_name' => '',
-            'product_summary' => '',
-            'product_description' => '',
+            'product_name' => [],
+            'product_summary' => [],
+            'product_description' => [],
             'reference' => '',
-            'link_rewrite' => '',
+            'link_rewrite' => [],
             'categories' => [],
             'default_category' => 0,
             'accessories' => [],
@@ -320,20 +367,31 @@ final class PackController extends AbstractDydapsAdminController
             'height' => 0,
             'depth' => 0,
             'weight' => 0,
-            'delivery_time' => '',
+            'delivery_time_type' => 'default',
+            'delivery_in_stock' => [],
+            'delivery_out_stock' => [],
             'price_tax_excl' => 0,
+            'price_tax_incl' => 0,
             'tax_rules_group' => (int) \Configuration::get('PS_TAX_RULES_GROUP_DEFAULT'),
-            'meta_title' => '',
-            'meta_description' => '',
+            'meta_title' => [],
+            'meta_description' => [],
             'pack_type' => 'fixed',
-            'pricing_method' => 'fixed',
-            'fixed_price_tax_excl' => 0,
-            'forced_price_tax_excl' => 0,
-            'global_discount_percent' => 0,
-            'global_discount_amount_tax_excl' => 0,
+            'pricing_method' => PackConfig::PRICING_FIXED,
             'stock_behavior' => 'components',
             'components_json' => $this->getDefaultComponentsJson(),
         ];
+
+        foreach ($languages as $lang) {
+            $idLangValue = (int) $lang['id_lang'];
+            $data['product_name'][$idLangValue] = '';
+            $data['product_summary'][$idLangValue] = '';
+            $data['product_description'][$idLangValue] = '';
+            $data['link_rewrite'][$idLangValue] = '';
+            $data['delivery_in_stock'][$idLangValue] = '';
+            $data['delivery_out_stock'][$idLangValue] = '';
+            $data['meta_title'][$idLangValue] = '';
+            $data['meta_description'][$idLangValue] = '';
+        }
 
         if ($pack) {
             foreach (['pack_type', 'pricing_method', 'stock_behavior', 'fixed_price_tax_excl', 'forced_price_tax_excl', 'global_discount_percent', 'global_discount_amount_tax_excl'] as $key) {
@@ -345,11 +403,18 @@ final class PackController extends AbstractDydapsAdminController
         if ($idProduct > 0) {
             $product = new \Product($idProduct, false, $idLang, $idShop);
             if (\Validate::isLoadedObject($product)) {
-                $data['product_name'] = (string) ($product->name[$idLang] ?? '');
-                $data['product_summary'] = (string) ($product->description_short[$idLang] ?? '');
-                $data['product_description'] = (string) ($product->description[$idLang] ?? '');
+                foreach ($languages as $lang) {
+                    $idLangValue = (int) $lang['id_lang'];
+                    $data['product_name'][$idLangValue] = (string) ($product->name[$idLangValue] ?? '');
+                    $data['product_summary'][$idLangValue] = (string) ($product->description_short[$idLangValue] ?? '');
+                    $data['product_description'][$idLangValue] = (string) ($product->description[$idLangValue] ?? '');
+                    $data['link_rewrite'][$idLangValue] = (string) ($product->link_rewrite[$idLangValue] ?? '');
+                    $data['delivery_in_stock'][$idLangValue] = (string) ($product->delivery_in_stock[$idLangValue] ?? '');
+                    $data['delivery_out_stock'][$idLangValue] = (string) ($product->delivery_out_stock[$idLangValue] ?? '');
+                    $data['meta_title'][$idLangValue] = (string) ($product->meta_title[$idLangValue] ?? '');
+                    $data['meta_description'][$idLangValue] = (string) ($product->meta_description[$idLangValue] ?? '');
+                }
                 $data['reference'] = (string) $product->reference;
-                $data['link_rewrite'] = (string) ($product->link_rewrite[$idLang] ?? '');
                 $data['categories'] = array_map('intval', $product->getCategories());
                 $data['default_category'] = (int) $product->id_category_default;
                 $data['accessories'] = array_map('intval', array_column($product->getAccessories($idLang), 'id_product'));
@@ -357,11 +422,11 @@ final class PackController extends AbstractDydapsAdminController
                 $data['height'] = (float) $product->height;
                 $data['depth'] = (float) $product->depth;
                 $data['weight'] = (float) $product->weight;
-                $data['delivery_time'] = (string) ($product->delivery_in_stock[$idLang] ?? '');
                 $data['price_tax_excl'] = (float) $product->price;
                 $data['tax_rules_group'] = (int) $product->id_tax_rules_group;
-                $data['meta_title'] = (string) ($product->meta_title[$idLang] ?? '');
-                $data['meta_description'] = (string) ($product->meta_description[$idLang] ?? '');
+                $data['price_tax_incl'] = round((float) $product->price * (1 + $this->productService->getTaxRate((int) $product->id_tax_rules_group) / 100), 6);
+                $additionalDeliveryTimes = (int) $product->additional_delivery_times;
+                $data['delivery_time_type'] = $additionalDeliveryTimes === 0 ? 'none' : ($additionalDeliveryTimes === 1 ? 'default' : 'specific');
             }
         }
 
@@ -376,11 +441,211 @@ final class PackController extends AbstractDydapsAdminController
     private function getTaxRateMap(): array
     {
         $rates = [];
-        foreach (\TaxRulesGroup::getTaxRulesGroups(true) as $group) {
-            $rates[(int) $group['id_tax_rules_group']] = $this->productService->getTaxRate((int) $group['id_tax_rules_group']);
+        foreach ($this->getTaxRuleGroupsRows() as $row) {
+            $rates[(int) $row['id_tax_rules_group']] = $this->productService->getTaxRate((int) $row['id_tax_rules_group']);
+        }
+        $defaultId = (int) \Configuration::get('PS_TAX_RULES_GROUP_DEFAULT');
+        if ($defaultId > 0 && !isset($rates[$defaultId])) {
+            $rates[$defaultId] = $this->productService->getTaxRate($defaultId);
         }
 
         return $rates;
+    }
+
+    /**
+     * Return the non-deleted tax rules groups regardless of the shop context.
+     *
+     * The legacy TaxRulesGroup::getTaxRulesGroups() relies on Shop
+     * associations that may return an empty set depending on the current shop
+     * context, so the list is built from a direct query instead.
+     *
+     * @return list<array{id_tax_rules_group: int, name: string, active: int}>
+     */
+    private function getTaxRuleGroupsRows(): array
+    {
+        $rows = \Db::getInstance()->executeS(
+            'SELECT g.id_tax_rules_group, g.name, g.active
+             FROM `' . _DB_PREFIX_ . 'tax_rules_group` g
+             WHERE g.deleted = 0
+             ORDER BY g.active DESC, g.name ASC'
+        );
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /**
+     * Build the tax rules group choices for the form, always including the
+     * configured default group even when it is inactive.
+     *
+     * @return array<string, int> label to tax rules group identifier map
+     */
+    private function getTaxRuleChoicesForForm(): array
+    {
+        $choices = [];
+        $used = [];
+        foreach ($this->getTaxRuleGroupsRows() as $row) {
+            $label = (string) ($row['name'] ?? '');
+            if ($label === '') {
+                $label = '#' . (int) $row['id_tax_rules_group'];
+            }
+            if (isset($used[$label])) {
+                $label .= ' (#' . (int) $row['id_tax_rules_group'] . ')';
+            }
+            $used[$label] = true;
+            $choices[$label] = (int) $row['id_tax_rules_group'];
+        }
+
+        $defaultId = (int) \Configuration::get('PS_TAX_RULES_GROUP_DEFAULT');
+        if ($defaultId > 0 && !in_array($defaultId, $choices, true)) {
+            $row = \Db::getInstance()->getRow(
+                'SELECT g.id_tax_rules_group, g.name
+                 FROM `' . _DB_PREFIX_ . 'tax_rules_group` g
+                 WHERE g.id_tax_rules_group = ' . $defaultId
+            );
+            if (is_array($row)) {
+                $label = (string) ($row['name'] ?? ('#' . (int) $row['id_tax_rules_group']));
+                $choices[$label] = (int) $row['id_tax_rules_group'];
+            }
+        }
+
+        return $choices;
+    }
+
+    /**
+     * Build the category choices for the form from the same nested tree as the
+     * checkboxes, merging selected identifiers that the tree does not expose.
+     *
+     * The checkbox tree includes the shop root category while the previous
+     * flat list did not, which made the root category value fail as an invalid
+     * choice. Selected identifiers (root, inactive categories) are appended so
+     * both the default category and the submitted values remain selectable.
+     *
+     * @param int $idLang language identifier
+     * @param array<int, int> $selected selected category identifiers
+     *
+     * @return array<string, int> label to category identifier map
+     */
+    private function getCategoryChoicesForForm(int $idLang, array $selected): array
+    {
+        $flat = $this->getCategoryChoicesFlat($idLang);
+        foreach ($selected as $id) {
+            $id = (int) $id;
+            if ($id > 0 && !isset($flat[$id])) {
+                $name = (string) \Category::getName($id, $idLang);
+                if ($name === '') {
+                    $name = '#' . $id;
+                }
+                $flat[$id] = $name;
+            }
+        }
+
+        $choices = [];
+        $used = [];
+        foreach ($flat as $id => $label) {
+            $label = (string) $label;
+            if (isset($used[$label])) {
+                $label .= ' (#' . (int) $id . ')';
+            }
+            $used[$label] = true;
+            $choices[$label] = (int) $id;
+        }
+
+        return $choices;
+    }
+
+    /**
+     * Return the nested category tree for the current shop.
+     *
+     * @param int $idLang language identifier
+     *
+     * @return list<array<string, mixed>> nested category tree rows
+     */
+    private function getCategoryTree(int $idLang): array
+    {
+        $rootId = (int) \Configuration::get('PS_HOME_CATEGORY');
+        $tree = \Category::getNestedCategories($rootId, $idLang, true);
+
+        return is_array($tree) ? $tree : [];
+    }
+
+    /**
+     * Flatten the category tree into an id => indented label map.
+     *
+     * @param int $idLang language identifier
+     *
+     * @return array<int, string> category identifier to indented label
+     */
+    private function getCategoryChoicesFlat(int $idLang): array
+    {
+        $choices = [];
+        $walk = function (array $categories, string $prefix = '') use (&$walk, &$choices): void {
+            foreach ($categories as $category) {
+                $label = $prefix === '' ? (string) $category['name'] : $prefix . ' > ' . $category['name'];
+                $choices[(int) $category['id_category']] = $label;
+                if (!empty($category['children'])) {
+                    $walk($category['children'], $label);
+                }
+            }
+        };
+        $walk($this->getCategoryTree($idLang));
+
+        return $choices;
+    }
+
+    /**
+     * Resolve the display labels of selected associated products.
+     *
+     * @param array<int, mixed> $accessoryIds selected product identifiers
+     * @param int $idLang language identifier
+     *
+     * @return list<array{id_product: int, name: string}>
+     */
+    private function getSelectedAccessories(array $accessoryIds, int $idLang): array
+    {
+        $items = [];
+        foreach ($accessoryIds as $id) {
+            $idProduct = (int) $id;
+            if ($idProduct <= 0) {
+                continue;
+            }
+            $name = (string) \Product::getProductName($idProduct, null, $idLang);
+            if ($name === '') {
+                continue;
+            }
+            $items[] = ['id_product' => $idProduct, 'name' => $name];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Validate cross-field pack payload rules before persistence.
+     *
+     * @param array<string, mixed> $payload form data
+     *
+     * @return string empty string when valid, otherwise a translated error message
+     */
+    private function validatePayload(array $payload): string
+    {
+        $idLangDefault = (int) \Configuration::get('PS_LANG_DEFAULT');
+        $names = $payload['product_name'] ?? [];
+        $defaultName = is_array($names) ? trim((string) ($names[$idLangDefault] ?? '')) : '';
+
+        if ($defaultName === '') {
+            return $this->t('The pack name is required for the default language.', 'Modules.Dydapsconfigurablepacks.Admin');
+        }
+
+        if ((string) ($payload['pricing_method'] ?? '') === PackConfig::PRICING_FIXED && (float) ($payload['price_tax_excl'] ?? 0) <= 0) {
+            return $this->t('A fixed price greater than zero is required.', 'Modules.Dydapsconfigurablepacks.Admin');
+        }
+
+        $categories = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['categories'] ?? [])))));
+        $defaultCategory = (int) ($payload['default_category'] ?? 0);
+        if ($defaultCategory > 0 && !in_array($defaultCategory, $categories, true)) {
+            return $this->t('The default category must be one of the selected categories.', 'Modules.Dydapsconfigurablepacks.Admin');
+        }
+
+        return '';
     }
 
     /**
@@ -407,6 +672,12 @@ final class PackController extends AbstractDydapsAdminController
             }
             if ((int) ($component['quantity'] ?? 0) < 1) {
                 $errors[] = $this->t('Each pack component needs a quantity of at least 1.', 'Modules.Dydapsconfigurablepacks.Admin');
+            }
+            $allowed = array_map('intval', (array) ($component['allowed_combinations'] ?? []));
+            foreach ($allowed as $idAttribute) {
+                if ($idAttribute <= 0) {
+                    $errors[] = $this->t('A pack component declares an invalid allowed combination.', 'Modules.Dydapsconfigurablepacks.Admin');
+                }
             }
         }
 
@@ -445,10 +716,13 @@ final class PackController extends AbstractDydapsAdminController
             [
                 'id_product' => 0,
                 'name' => 'Component 1',
+                'reference' => '',
                 'quantity' => 1,
                 'optional' => false,
                 'component_type' => 'choice',
                 'position' => 0,
+                'allowed_combinations' => [],
+                'allow_customization' => false,
             ],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }

@@ -132,9 +132,10 @@ final class PackRepository
     /**
      * Persist the full component composition submitted from the admin form.
      *
-     * Existing editable rows are replaced atomically for the pack. Components
-     * are simplified to a single selectable product with a quantity and no
-     * per-component pricing: the product price is used globally.
+     * Existing editable rows are replaced atomically for the pack. Each
+     * component keeps a single selectable product with a quantity; every
+     * allowed combination is stored as its own component_product row so the
+     * front office can offer the merchant-approved combination choices.
      *
      * @param int $idPack pack identifier
      * @param list<array<string, mixed>> $components component definitions
@@ -162,6 +163,7 @@ final class PackRepository
                 'fixed_price_tax_excl' => 0,
                 'discount_percent' => 0,
                 'surcharge_tax_excl' => 0,
+                'allow_customization' => (int) !empty($component['allow_customization']),
                 'active' => 1,
             ])) {
                 throw new \RuntimeException('Unable to save pack component.');
@@ -177,35 +179,31 @@ final class PackRepository
             }
 
             $idProduct = (int) ($component['id_product'] ?? 0);
-            if ($idProduct <= 0 && is_array($component['products'] ?? null)) {
-                foreach (array_values($component['products']) as $product) {
-                    if (is_array($product) && (int) ($product['id_product'] ?? 0) > 0) {
-                        $idProduct = (int) $product['id_product'];
-                        break;
-                    }
-                }
-            }
             if ($idProduct <= 0) {
                 continue;
             }
-            if (!\Db::getInstance()->insert('dydaps_pack_component_product', [
-                'id_component' => $idComponent,
-                'id_product' => $idProduct,
-                'id_product_attribute' => 0,
-                'is_default' => 1,
-                'position' => 0,
-                'active' => 1,
-            ])) {
-                throw new \RuntimeException('Unable to save pack component product.');
+            $allowedCombinations = array_values(array_unique(array_filter(array_map('intval', (array) ($component['allowed_combinations'] ?? [])))));
+            $rows = $allowedCombinations ? array_map(static fn (int $idAttribute): array => ['id_product_attribute' => $idAttribute], $allowedCombinations) : [['id_product_attribute' => 0]];
+            foreach ($rows as $index => $row) {
+                if (!\Db::getInstance()->insert('dydaps_pack_component_product', [
+                    'id_component' => $idComponent,
+                    'id_product' => $idProduct,
+                    'id_product_attribute' => (int) $row['id_product_attribute'],
+                    'is_default' => $index === 0 ? 1 : 0,
+                    'position' => $index,
+                    'active' => 1,
+                ])) {
+                    throw new \RuntimeException('Unable to save pack component product.');
+                }
             }
         }
     }
 
     /**
-     * Return the simplified component payload used by the admin JSON editor.
+     * Return the component payload used by the admin component builder.
      *
-     * Each component references a single selectable product whose name is used
-     * as the component label.
+     * Each component references a single selectable product and the list of
+     * combinations the merchant allowed for the front-office configurator.
      *
      * @param int $idPack pack identifier
      * @param int $idLang language identifier
@@ -215,16 +213,32 @@ final class PackRepository
     public function getComponentsForAdmin(int $idPack, int $idLang): array
     {
         $components = $this->getComponents($idPack, $idLang);
+        $idShop = (int) $this->context->shop->id;
         foreach ($components as &$component) {
             $selections = $this->getAllowedSelections((int) $component['id_component']);
-            $selection = $selections[0] ?? null;
-            $idProduct = $selection ? (int) $selection['id_product'] : 0;
-            $component['id_product'] = $idProduct;
+            $idProduct = $selections[0]['id_product'] ?? 0;
+            $allowed = [];
+            foreach ($selections as $selection) {
+                $idAttribute = (int) $selection['id_product_attribute'];
+                if ($idAttribute > 0) {
+                    $allowed[] = $idAttribute;
+                }
+            }
+            $component['id_product'] = (int) $idProduct;
             $component['reference'] = $idProduct > 0
                 ? (string) \Db::getInstance()->getValue(
                     'SELECT reference FROM `' . _DB_PREFIX_ . 'product` WHERE id_product = ' . (int) $idProduct
                 )
                 : '';
+            $component['allowed_combinations'] = array_values(array_unique($allowed));
+            $component['allow_customization'] = (int) ($component['allow_customization'] ?? 0) === 1;
+            $component['has_customization'] = $idProduct > 0 && $this->productHasCustomization($idProduct);
+            $component['combinations'] = $idProduct > 0
+                ? array_values(array_map(static fn (array $combination): array => [
+                    'id_product_attribute' => (int) $combination['id_product_attribute'],
+                    'name' => (string) $combination['attributes_text'],
+                ], $this->getBuilderCombinations($idProduct, $idShop, $idLang)))
+                : [];
             if (trim((string) $component['name']) === '') {
                 $component['name'] = $idProduct > 0
                     ? (string) \Product::getProductName($idProduct, null, $idLang)
@@ -281,9 +295,11 @@ final class PackRepository
                     'price_tax_incl' => $priceTaxIncl,
                     'impact_tax_excl' => $priceTaxExcl,
                     'impact_tax_incl' => $priceTaxIncl,
+                    'has_customization' => $this->productHasCustomization($idProduct),
                     'is_default' => (int) $selection['is_default'],
                 ];
             }
+            $component['allow_customization'] = (int) ($component['allow_customization'] ?? 0) === 1;
             $component['products'] = $products;
         }
         unset($component);
@@ -292,7 +308,11 @@ final class PackRepository
     }
 
     /**
-     * Search active products and combinations for the admin component builder.
+     * Search active products for the admin component builder.
+     *
+     * Results are grouped per product: the combination list lets the builder
+     * expose the merchant-approved combinations, and the customization flag
+     * signals whether the component customization option is relevant.
      *
      * @param string $query search term matched against name, product reference and combination reference
      * @param int $idShop shop identifier used to scope products
@@ -300,16 +320,17 @@ final class PackRepository
      *
      * @return list<array{
      *     id_product: int,
-     *     id_product_attribute: int,
      *     name: string,
      *     reference: string,
-     *     attributes_text: string,
-     *     image: string
+     *     image: string,
+     *     has_combinations: bool,
+     *     has_customization: bool,
+     *     combinations: list<array{id_product_attribute: int, name: string, reference: string}>
      * }>
      */
     public function searchProductsForBuilder(string $query, int $idShop, int $idLang): array
     {
-        $sql = 'SELECT p.id_product, pl.name, p.reference, ps.active
+        $sql = 'SELECT p.id_product, pl.name, p.reference, p.link_rewrite, ps.active
             FROM `' . _DB_PREFIX_ . 'product` p
             INNER JOIN `' . _DB_PREFIX_ . 'product_shop` ps
                 ON ps.id_product = p.id_product AND ps.id_shop = ' . (int) $idShop . '
@@ -323,7 +344,7 @@ final class PackRepository
                     OR p.reference LIKE "%' . pSQL($query) . '%"
                     OR pa_ref.reference LIKE "%' . pSQL($query) . '%"
                 )
-            GROUP BY p.id_product, pl.name, p.reference, ps.active
+            GROUP BY p.id_product, pl.name, p.reference, p.link_rewrite, ps.active
             ORDER BY pl.name ASC, p.id_product ASC
             LIMIT 20';
 
@@ -331,24 +352,53 @@ final class PackRepository
         foreach (\Db::getInstance()->executeS($sql) ?: [] as $row) {
             $idProduct = (int) $row['id_product'];
             $combinations = $this->getBuilderCombinations($idProduct, $idShop, $idLang);
-            if (!$combinations) {
-                $products[] = $this->buildProductSearchRow($idProduct, 0, (string) $row['name'], (string) $row['reference'], '', $idLang);
-                continue;
+            $cover = \Product::getCover($idProduct);
+            $image = '';
+            if (is_array($cover) && isset($cover['id_image']) && $this->context->link) {
+                $image = (string) $this->context->link->getImageLink((string) $row['link_rewrite'], (string) $cover['id_image'], \ImageType::getFormattedName('small'));
             }
-
-            foreach ($combinations as $combination) {
-                $products[] = $this->buildProductSearchRow(
-                    $idProduct,
-                    (int) $combination['id_product_attribute'],
-                    (string) $row['name'],
-                    (string) ($combination['reference'] ?: $row['reference']),
-                    (string) $combination['attributes_text'],
-                    $idLang
-                );
-            }
+            $products[] = [
+                'id_product' => $idProduct,
+                'name' => (string) $row['name'],
+                'reference' => (string) $row['reference'],
+                'image' => $image,
+                'has_combinations' => (bool) $combinations,
+                'has_customization' => $this->productHasCustomization($idProduct),
+                'combinations' => array_map(static fn (array $combination): array => [
+                    'id_product_attribute' => (int) $combination['id_product_attribute'],
+                    'name' => (string) $combination['attributes_text'],
+                    'reference' => (string) ($combination['reference'] ?: $row['reference']),
+                ], $combinations),
+            ];
         }
 
         return $products;
+    }
+
+    /**
+     * Return whether a product exposes native customization fields.
+     *
+     * Checks the legacy and the PrestaShop 9 replacement table so the flag keeps
+     * working across supported versions.
+     *
+     * @param int $idProduct product identifier
+     *
+     * @return bool true when the product has at least one active customization field
+     */
+    private function productHasCustomization(int $idProduct): bool
+    {
+        $count = (int) \Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'customization_field`
+            WHERE id_product = ' . (int) $idProduct . ' AND active = 1'
+        );
+        if ($count === 0) {
+            $count = (int) \Db::getInstance()->getValue(
+                'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'product_customization_field`
+                WHERE id_product = ' . (int) $idProduct
+            );
+        }
+
+        return $count > 0;
     }
 
     /**
@@ -362,6 +412,7 @@ final class PackRepository
      *     pack_type?: string,
      *     pricing_method?: string,
      *     fixed_price_tax_excl?: float|int|string,
+     *     price_tax_excl?: float|int|string,
      *     forced_price_tax_excl?: float|int|string,
      *     global_discount_percent?: float|int|string,
      *     global_discount_amount_tax_excl?: float|int|string,
@@ -379,7 +430,7 @@ final class PackRepository
             'active' => (int) ($data['active'] ?? 0),
             'pack_type' => pSQL((string) ($data['pack_type'] ?? 'fixed')),
             'pricing_method' => pSQL((string) ($data['pricing_method'] ?? 'fixed')),
-            'fixed_price_tax_excl' => (float) ($data['fixed_price_tax_excl'] ?? 0),
+            'fixed_price_tax_excl' => (float) ($data['fixed_price_tax_excl'] ?? $data['price_tax_excl'] ?? 0),
             'forced_price_tax_excl' => (float) ($data['forced_price_tax_excl'] ?? 0),
             'global_discount_percent' => (float) ($data['global_discount_percent'] ?? 0),
             'global_discount_amount_tax_excl' => (float) ($data['global_discount_amount_tax_excl'] ?? 0),
@@ -515,52 +566,6 @@ final class PackRepository
             'SELECT reference FROM `' . _DB_PREFIX_ . 'product_attribute`
             WHERE id_product_attribute = ' . (int) $idProductAttribute
         );
-    }
-
-    /**
-     * Build one product choice row for the builder.
-     *
-     * @param int $idProduct product identifier
-     * @param int $idProductAttribute combination identifier
-     * @param string $name product name
-     * @param string $reference product or combination reference
-     * @param string $attributesText human-readable combination attributes
-     * @param int $idLang language identifier
-     *
-     * @return array{
-     *     id_product: int,
-     *     id_product_attribute: int,
-     *     name: string,
-     *     reference: string,
-     *     attributes_text: string,
-     *     image: string
-     * }
-     */
-    private function buildProductSearchRow(int $idProduct, int $idProductAttribute, string $name, string $reference, string $attributesText, int $idLang): array
-    {
-        $product = new \Product($idProduct, false, $idLang);
-        if ($reference === '') {
-            $reference = $idProductAttribute > 0
-                ? $this->getCombinationReference($idProductAttribute)
-                : (string) $product->reference;
-        }
-        if ($attributesText === '' && $idProductAttribute > 0) {
-            $attributesText = strip_tags((string) \Product::getProductName($idProduct, $idProductAttribute, $idLang));
-        }
-        $cover = \Product::getCover($idProduct);
-        $image = '';
-        if (is_array($cover) && isset($cover['id_image']) && $this->context->link) {
-            $image = (string) $this->context->link->getImageLink((string) $product->link_rewrite, (string) $cover['id_image'], \ImageType::getFormattedName('small'));
-        }
-
-        return [
-            'id_product' => $idProduct,
-            'id_product_attribute' => $idProductAttribute,
-            'name' => $name,
-            'reference' => $reference,
-            'attributes_text' => $attributesText,
-            'image' => $image,
-        ];
     }
 
     /**
