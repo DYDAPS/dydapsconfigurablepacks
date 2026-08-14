@@ -39,7 +39,11 @@ final class PackConfiguration
      *     id_product: int,
      *     id_product_attribute?: int,
      *     quantity?: int,
-     *     customization?: string
+     *     customization?: string,
+     *     customization_fields?: list<array{
+     *         id_customization_field: int,
+     *         value: string
+     *     }>
      * }>
      */
     private array $components;
@@ -50,7 +54,11 @@ final class PackConfiguration
      *     id_product: int,
      *     id_product_attribute?: int,
      *     quantity?: int,
-     *     customization?: string
+     *     customization?: string,
+     *     customization_fields?: list<array{
+     *         id_customization_field: int,
+     *         value: string
+     *     }>
      * }> $components Selected component products, with quantities per pack unit
      * @param int $idProduct native PrestaShop product sold as the pack container
      * @param int $quantity requested pack quantity
@@ -92,7 +100,11 @@ final class PackConfiguration
      *     id_product: int,
      *     id_product_attribute?: int,
      *     quantity?: int,
-     *     customization?: string
+     *     customization?: string,
+     *     customization_fields?: list<array{
+     *         id_customization_field: int,
+     *         value: string
+     *     }>
      * }>
      */
     public function getComponents(): array
@@ -111,7 +123,11 @@ final class PackConfiguration
      *         id_product: int,
      *         id_product_attribute?: int,
      *         quantity?: int,
-     *         customization?: string
+     *         customization?: string,
+     *         customization_fields?: list<array{
+     *             id_customization_field: int,
+     *             value: string
+     *         }>
      *     }>
      * }
      */

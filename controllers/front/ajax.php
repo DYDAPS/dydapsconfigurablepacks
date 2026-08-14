@@ -33,6 +33,7 @@ use Dydaps\ConfigurablePacks\Service\PackAvailabilityService;
 use Dydaps\ConfigurablePacks\Service\PackCartService;
 use Dydaps\ConfigurablePacks\Service\PackConfigurationHashGenerator;
 use Dydaps\ConfigurablePacks\Service\PackConfigurationService;
+use Dydaps\ConfigurablePacks\Service\PackCustomizationFeeCalculator;
 use Dydaps\ConfigurablePacks\Service\PackDiscountAllocator;
 use Dydaps\ConfigurablePacks\Service\PackPriceCalculator;
 use Dydaps\ConfigurablePacks\Service\PackStockCalculator;
@@ -99,18 +100,22 @@ class DydapsconfigurablepacksAjaxModuleFrontController extends ModuleFrontContro
                 $controller = $container->get('dydaps.configurable_packs.controller.front.ajax');
             } else {
                 $packRepository = new PackRepository($this->context);
+                $legacyContext = new LegacyContext();
+                $feeCalculator = new PackCustomizationFeeCalculator();
                 $controller = new PackAjaxController(
                     new PackConfigurationService(),
                     new PackCartService(
                         new PackCartRepository(),
                         new PackConfigurationHashGenerator(),
-                        new PackPriceCalculator($packRepository, new PackDiscountAllocator(), $this->context),
+                        new PackPriceCalculator($packRepository, new PackDiscountAllocator(), $this->context, $feeCalculator),
                         new PackAvailabilityService(new PackStockCalculator(new PackStockRepository())),
-                        new PackConfigurationValidator($packRepository)
+                        new PackConfigurationValidator($packRepository),
+                        $legacyContext
                     ),
                     $packRepository,
                     new FrontAjaxToken($this->context),
-                    new LegacyContext()
+                    $legacyContext,
+                    $feeCalculator
                 );
             }
             $response = $controller->index(Request::createFromGlobals());

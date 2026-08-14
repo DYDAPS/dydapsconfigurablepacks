@@ -29,6 +29,8 @@ use Dydaps\ConfigurablePacks\Repository\PackRepository;
 use Dydaps\ConfigurablePacks\Service\PackProductService;
 use PrestaShop\PrestaShop\Core\Grid\GridFactoryInterface;
 use PrestaShop\PrestaShop\Core\Grid\Presenter\GridPresenterInterface;
+use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -209,14 +211,20 @@ final class PackController extends AbstractDydapsAdminController
             return new JsonResponse(['ok' => true, 'products' => []]);
         }
 
-        return new JsonResponse([
-            'ok' => true,
-            'products' => $this->repository->searchProductsForBuilder(
-                $query,
-                (int) $this->getContext()->shop->id,
-                (int) $this->getContext()->language->id
-            ),
-        ]);
+        try {
+            return new JsonResponse([
+                'ok' => true,
+                'products' => $this->repository->searchProductsForBuilder(
+                    $query,
+                    (int) $this->getContext()->shop->id,
+                    (int) $this->getContext()->language->id
+                ),
+            ]);
+        } catch (\Throwable $e) {
+            \PrestaShopLogger::addLog('Configurable packs: product search failed: ' . $e->getMessage(), 3);
+
+            return new JsonResponse(['ok' => false, 'error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -248,10 +256,9 @@ final class PackController extends AbstractDydapsAdminController
 
             $validationError = $this->validatePayload($payload);
             if ($validationError !== '') {
-                $this->addFlash('error', $validationError);
-
-                return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
+                $form->addError(new FormError($validationError));
             }
+
             $selectedCategories = array_values(array_unique(array_filter(array_map('intval', (array) ($payload['categories'] ?? [])))));
             if ((int) ($payload['default_category'] ?? 0) <= 0 && $selectedCategories) {
                 $payload['default_category'] = $selectedCategories[0];
@@ -259,56 +266,73 @@ final class PackController extends AbstractDydapsAdminController
 
             $components = json_decode((string) ($payload['components_json'] ?? '[]'), true);
             if (!is_array($components)) {
-                $this->addFlash('error', $this->t('The pack component definition is invalid.', 'Modules.Dydapsconfigurablepacks.Admin'));
-
-                return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
-            }
-            $errors = $this->validateComponentsForSave($components);
-            if ($errors) {
-                foreach ($errors as $error) {
-                    $this->addFlash('error', $error);
+                $form->addError(new FormError($this->t('The pack component definition is invalid.', 'Modules.Dydapsconfigurablepacks.Admin')));
+                $components = [];
+            } else {
+                foreach ($this->validateComponentsForSave($components) as $componentError) {
+                    $form->addError(new FormError($componentError));
                 }
-
-                return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
             }
 
             $idProduct = (int) ($payload['id_product'] ?? 0);
-            if ($idProduct > 0) {
-                $existingPack = $this->repository->getPackByProduct($idProduct, $idShop);
-                if ($existingPack && (int) $existingPack['id_pack'] !== (int) $payload['id_pack']) {
-                    $this->addFlash('error', $this->t('This product is already configured as a pack for the current shop.', 'Modules.Dydapsconfigurablepacks.Admin'));
-
-                    return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
-                }
+            $existingPack = $idProduct > 0 ? $this->repository->getPackByProduct($idProduct, $idShop) : null;
+            if ($existingPack && (int) $existingPack['id_pack'] !== (int) $payload['id_pack']) {
+                $form->addError(new FormError($this->t('This product is already configured as a pack for the current shop.', 'Modules.Dydapsconfigurablepacks.Admin')));
             }
 
-            try {
-                $idProduct = $this->productService->createOrUpdate($idProduct > 0 ? $idProduct : null, $payload, $idShop);
-            } catch (\Throwable $e) {
-                $this->addFlash('error', $this->t('Unable to save the pack product.', 'Modules.Dydapsconfigurablepacks.Admin'));
-
-                return $this->redirectToRoute($pack ? 'dydaps_configurable_packs_edit' : 'dydaps_configurable_packs_create', $pack ? ['id' => (int) $pack['id_pack']] : []);
-            }
-            $payload['id_product'] = $idProduct;
-
-            $coverFile = $form->get('cover_image')->getData();
-            if ($coverFile instanceof \Symfony\Component\HttpFoundation\File\UploadedFile) {
+            if (!$form->getErrors(true)->count()) {
                 try {
-                    $this->productService->setCoverImage($idProduct, $coverFile, $idShop);
+                    $idProduct = $this->productService->createOrUpdate($idProduct > 0 ? $idProduct : null, $payload, $idShop);
                 } catch (\Throwable $e) {
-                    $this->addFlash('error', $this->t('Unable to upload the pack cover image.', 'Modules.Dydapsconfigurablepacks.Admin'));
+                    $form->addError(new FormError($this->t('Unable to save the pack product.', 'Modules.Dydapsconfigurablepacks.Admin')));
                 }
             }
 
-            unset($payload['components_json']);
-            $idPack = $this->repository->savePack($payload);
-            $this->repository->replaceComponents($idPack, array_values($components), $idLang);
-            $this->addFlash('success', $this->t('Pack configuration saved.', 'Modules.Dydapsconfigurablepacks.Admin'));
+            if (!$form->getErrors(true)->count()) {
+                $payload['id_product'] = $idProduct;
 
-            return $this->redirectToRoute('dydaps_configurable_packs_index');
+                $coverFile = $form->get('cover_image')->getData();
+                if ($coverFile instanceof \Symfony\Component\HttpFoundation\File\UploadedFile) {
+                    try {
+                        $this->productService->setCoverImage($idProduct, $coverFile, $idShop);
+                    } catch (\Throwable $e) {
+                        $this->addFlash('error', $this->t('Unable to upload the pack cover image.', 'Modules.Dydapsconfigurablepacks.Admin'));
+                    }
+                }
+
+                unset($payload['components_json']);
+                $idPack = $this->repository->savePack($payload);
+                $this->repository->replaceComponents($idPack, array_values($components), $idLang);
+                $this->addFlash('success', $this->t('Pack configuration saved.', 'Modules.Dydapsconfigurablepacks.Admin'));
+
+                return $this->redirectToRoute('dydaps_configurable_packs_index');
+            }
         }
 
-        $currentData = is_array($form->getData()) ? $form->getData() : $data;
+        return $this->renderPackForm($request, $form, $pack, $data, $idProduct, $idShop, $idLang);
+    }
+
+    /**
+     * Render the pack form while preserving submitted values after a failed save.
+     *
+     * Category selections and the default category are read from the submitted
+     * payload when present because Symfony keeps the original model data once a
+     * form has been submitted.
+     *
+     * @param Request $request current admin request
+     * @param FormInterface $form pack form
+     * @param array<string, mixed>|null $pack existing pack row, or null for creation defaults
+     * @param array<string, mixed> $data original form data
+     * @param int $idProduct linked native product identifier
+     * @param int $idShop pack shop identifier
+     * @param int $idLang current language identifier
+     *
+     * @return Response rendered form page
+     */
+    private function renderPackForm(Request $request, FormInterface $form, ?array $pack, array $data, int $idProduct, int $idShop, int $idLang): Response
+    {
+        $submitted = $request->request->all('pack_general');
+        $currentData = is_array($submitted) && $submitted !== [] ? $submitted : (is_array($form->getData()) ? $form->getData() : $data);
         $selectedCategories = array_values(array_unique(array_filter(array_map('intval', (array) ($currentData['categories'] ?? [])))));
         $selectedAccessories = $this->getSelectedAccessories((array) ($currentData['accessories'] ?? []), $idLang);
 
@@ -401,7 +425,7 @@ final class PackController extends AbstractDydapsAdminController
         }
 
         if ($idProduct > 0) {
-            $product = new \Product($idProduct, false, $idLang, $idShop);
+            $product = new \Product($idProduct, false, null, $idShop);
             if (\Validate::isLoadedObject($product)) {
                 foreach ($languages as $lang) {
                     $idLangValue = (int) $lang['id_lang'];
@@ -484,7 +508,7 @@ final class PackController extends AbstractDydapsAdminController
         $choices = [];
         $used = [];
         foreach ($this->getTaxRuleGroupsRows() as $row) {
-            $label = (string) ($row['name'] ?? '');
+            $label = (string) $row['name'];
             if ($label === '') {
                 $label = '#' . (int) $row['id_tax_rules_group'];
             }
@@ -531,7 +555,7 @@ final class PackController extends AbstractDydapsAdminController
         foreach ($selected as $id) {
             $id = (int) $id;
             if ($id > 0 && !isset($flat[$id])) {
-                $name = (string) \Category::getName($id, $idLang);
+                $name = $this->getCategoryName($id, $idLang);
                 if ($name === '') {
                     $name = '#' . $id;
                 }
@@ -551,6 +575,28 @@ final class PackController extends AbstractDydapsAdminController
         }
 
         return $choices;
+    }
+
+    /**
+     * Resolve the translated name of a category from the category_lang rows.
+     *
+     * Category::getName() is an instance method and no static variant exists in
+     * modern PrestaShop versions, so the label is read directly instead.
+     *
+     * @param int $idCategory category identifier
+     * @param int $idLang language identifier
+     *
+     * @return string category name, or an empty string when missing
+     */
+    private function getCategoryName(int $idCategory, int $idLang): string
+    {
+        $name = \Db::getInstance()->getValue(
+            'SELECT name FROM `' . _DB_PREFIX_ . 'category_lang`
+             WHERE id_category = ' . $idCategory . ' AND id_lang = ' . $idLang . '
+             ORDER BY id_shop ASC'
+        );
+
+        return is_string($name) ? $name : '';
     }
 
     /**

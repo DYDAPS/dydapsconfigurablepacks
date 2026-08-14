@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0 - 2026-08-14
+
+- Fixed the back-office rich text editor so summary and description textareas initialize TinyMCE when their tab becomes visible and save on form submission.
+- Reworked front-office declination selection for accessibility: attribute groups render as fieldsets with legends, chips keep keyboard focus, selection is announced through a live region, and unavailable combinations stay disabled.
+- Added an optional/mandatory customization setting per pack component: the front-office shows "Facultatif"/"Obligatoire" and blocks add-to-cart until required customization data is provided.
+- Fixed front-office flag parsing so component customization settings are honored regardless of JSON boolean type.
+- Kept native PrestaShop customization fields and the DYDAPS customization fee module supported: per-field fees are shown and included in estimated totals and the calculated pack price, including fixed and forced pack pricing.
+- Displayed pack component customization fee totals in the checkout summary, not only on the cart page.
+- Included pack component customization fees in the native cart line price override, so cart totals match the displayed pack price.
+
 ## 1.1.0 - 2026-08-11
 
 - Added a visual back-office component builder for configurable pack definitions.

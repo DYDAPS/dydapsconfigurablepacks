@@ -32,8 +32,29 @@
           {l s='Customization' mod='dydapsconfigurablepacks' d='Modules.Dydapsconfigurablepacks.Shop'}:
           {$component.customization|escape:'html':'UTF-8'}
         {/if}
+        {if isset($component.customization_fields) && $component.customization_fields}
+          {foreach from=$component.customization_fields item=field}
+            -
+            {if $field.name}
+              {$field.name|escape:'html':'UTF-8'}:
+            {/if}
+            {$field.value|escape:'html':'UTF-8'}
+          {/foreach}
+        {/if}
         &times;{$component.quantity|intval}
       </li>
     {/foreach}
   </ul>
+  {if isset($dydaps_pack_cart_fees) && $dydaps_pack_cart_fees}
+    {foreach from=$dydaps_pack_cart_fees item=dydaps_fee}
+      <span class="dydaps-customization-product-fee"
+            data-customization-id="{$dydaps_fee.id_customization|intval}"
+            data-amount="{$dydaps_fee.amount_raw|floatval}"
+            data-currency="{$dydaps_fee.currency|escape:'html':'UTF-8'}"
+            data-label="{$dydaps_fee.label|escape:'html':'UTF-8'}"
+            data-unit-line="{$dydaps_fee.unit_line|escape:'html':'UTF-8'}"
+            data-total-line="{$dydaps_fee.total_line|escape:'html':'UTF-8'}"
+            data-tax-included="{if $dydaps_fee.tax_included}1{else}0{/if}"></span>
+    {/foreach}
+  {/if}
 </div>

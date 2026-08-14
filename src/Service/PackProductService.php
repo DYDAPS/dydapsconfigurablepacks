@@ -21,6 +21,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use Dydaps\ConfigurablePacks\Config\PackConfig;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
@@ -108,10 +109,11 @@ final class PackProductService
         $image = new \Image();
         $image->id_product = (int) $idProduct;
         $image->position = (int) \Image::getHighestPosition($idProduct) + 1;
-        $image->cover = true;
+        $image->cover = null;
         if (!$image->add()) {
             throw new \RuntimeException('Unable to create the pack product image.');
         }
+        $image->createImgFolder();
 
         $imagePath = _PS_PRODUCT_IMG_DIR_ . $image->getImgFolder() . (int) $image->id . '.jpg';
         if (!\ImageManager::resize($fileData['tmp_name'], $imagePath)) {
@@ -129,9 +131,25 @@ final class PackProductService
         }
 
         $db = \Db::getInstance();
-        $db->update('image', ['cover' => 0], 'id_product = ' . (int) $idProduct);
+
+        $image->associateTo([$idShop]);
+
+        $hasShopRow = (int) $db->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'image_shop`
+             WHERE id_image = ' . (int) $image->id . ' AND id_shop = ' . (int) $idShop
+        ) > 0;
+        if (!$hasShopRow) {
+            $db->insert('image_shop', [
+                'id_image' => (int) $image->id,
+                'id_product' => (int) $idProduct,
+                'id_shop' => (int) $idShop,
+                'cover' => null,
+            ], true);
+        }
+
+        $db->update('image', ['cover' => null], 'id_product = ' . (int) $idProduct, 0, true);
         $db->update('image', ['cover' => 1], 'id_image = ' . (int) $image->id);
-        $db->update('image_shop', ['cover' => 0], 'id_product = ' . (int) $idProduct . ' AND id_shop = ' . (int) $idShop);
+        $db->update('image_shop', ['cover' => null], 'id_product = ' . (int) $idProduct . ' AND id_shop = ' . (int) $idShop, 0, true);
         $db->update('image_shop', ['cover' => 1], 'id_image = ' . (int) $image->id . ' AND id_shop = ' . (int) $idShop);
     }
 
@@ -190,7 +208,11 @@ final class PackProductService
 
         $reference = trim((string) ($data['reference'] ?? ''));
         $product->reference = $reference !== '' ? $reference : ('PACK-' . strtoupper(substr((string) hash('sha256', (string) uniqid('', true)), 0, 8)));
-        $product->price = (float) ($data['price_tax_excl'] ?? 0);
+        $price = (float) ($data['price_tax_excl'] ?? 0);
+        if ((string) ($data['pricing_method'] ?? '') === PackConfig::PRICING_COMPONENT_SUM) {
+            $price = $this->sumComponentPrices($data);
+        }
+        $product->price = $price;
         $product->id_tax_rules_group = (int) ($data['tax_rules_group'] ?? 0);
         $product->width = (float) ($data['width'] ?? 0);
         $product->height = (float) ($data['height'] ?? 0);
@@ -228,6 +250,37 @@ final class PackProductService
             $product->delivery_in_stock[$idLang] = $this->langValue($data, 'delivery_in_stock', $idLang);
             $product->delivery_out_stock[$idLang] = $this->langValue($data, 'delivery_out_stock', $idLang);
         }
+    }
+
+    /**
+     * Compute the pack container price as the sum of its component prices.
+     *
+     * Used when the pack pricing method is "component sum": the stored product
+     * price must stay in sync with the sum of current component catalog prices
+     * regardless of the values submitted from the disabled admin inputs.
+     *
+     * @param array<string, mixed> $data form payload containing the component definition
+     *
+     * @return float total price excluding tax
+     */
+    private function sumComponentPrices(array $data): float
+    {
+        $components = json_decode((string) ($data['components_json'] ?? '[]'), true);
+        if (!is_array($components)) {
+            return 0.0;
+        }
+
+        $sum = 0.0;
+        foreach ($components as $component) {
+            if (!is_array($component) || (int) ($component['id_product'] ?? 0) <= 0) {
+                continue;
+            }
+            $idProduct = (int) $component['id_product'];
+            $quantity = max(1, (int) ($component['quantity'] ?? 1));
+            $sum += (float) \Product::getPriceStatic($idProduct, false, null, 6) * $quantity;
+        }
+
+        return round($sum, 6);
     }
 
     /**

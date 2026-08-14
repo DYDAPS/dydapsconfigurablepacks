@@ -25,6 +25,7 @@ use Dydaps\ConfigurablePacks\Repository\PackRepository;
 use Dydaps\ConfigurablePacks\Security\FrontAjaxToken;
 use Dydaps\ConfigurablePacks\Service\PackCartService;
 use Dydaps\ConfigurablePacks\Service\PackConfigurationService;
+use Dydaps\ConfigurablePacks\Service\PackCustomizationFeeCalculator;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -44,6 +45,7 @@ final class AjaxController
     private PackRepository $repository;
     private FrontAjaxToken $token;
     private LegacyContext $legacyContext;
+    private ?PackCustomizationFeeCalculator $feeCalculator;
 
     /**
      * @param PackConfigurationService $configurationService service normalizing posted configurations
@@ -51,16 +53,18 @@ final class AjaxController
      * @param PackRepository $repository repository used to describe active packs
      * @param FrontAjaxToken $token token service used to protect mutating AJAX actions
      * @param LegacyContext $legacyContext adapter exposing the current PrestaShop context
+     * @param PackCustomizationFeeCalculator|null $feeCalculator optional calculator exposing component customization fees
      *
      * @return void
      */
-    public function __construct(PackConfigurationService $configurationService, PackCartService $cartService, PackRepository $repository, FrontAjaxToken $token, LegacyContext $legacyContext)
+    public function __construct(PackConfigurationService $configurationService, PackCartService $cartService, PackRepository $repository, FrontAjaxToken $token, LegacyContext $legacyContext, ?PackCustomizationFeeCalculator $feeCalculator = null)
     {
         $this->configurationService = $configurationService;
         $this->cartService = $cartService;
         $this->repository = $repository;
         $this->token = $token;
         $this->legacyContext = $legacyContext;
+        $this->feeCalculator = $feeCalculator;
     }
 
     /**
@@ -112,9 +116,67 @@ final class AjaxController
             return $this->json(['ok' => false, 'error' => $this->trans('Pack not found.')], 404);
         }
         $components = $this->repository->describeComponents((int) $pack['id_pack'], (int) $context->language->id, (int) $context->shop->id, (int) $context->currency->id, (int) $context->customer->id);
+        $components = $this->enrichDescribeComponents($components, (int) $context->language->id, (int) $context->shop->id, (int) $context->currency->id);
         $packPriceTaxIncl = (float) \Product::getPriceStatic($idProduct, true, null, 6, null, false, true, 1, false, (int) $context->customer->id);
 
-        return $this->json(['ok' => true, 'pack' => $pack, 'pack_price_tax_incl' => $packPriceTaxIncl, 'components' => $components]);
+        return $this->json([
+            'ok' => true,
+            'pack' => $pack,
+            'pack_price_tax_incl' => $packPriceTaxIncl,
+            'fee_module_available' => $this->feeCalculator !== null && $this->feeCalculator->isFeeModuleAvailable(),
+            'components' => $components,
+        ]);
+    }
+
+    /**
+     * Attach native customization fields and optional fees to described products.
+     *
+     * Each product gains a customization_fields list; every field that has an
+     * enabled fee configuration in the fee module table also carries display
+     * amounts so the configurator can show the surcharge before submission.
+     *
+     * @param list<array<string, mixed>> $components described pack components
+     * @param int $idLang language identifier used for field labels
+     * @param int $idShop shop identifier used for fee lookups
+     * @param int $idCurrency currency used for fee display amounts
+     *
+     * @return list<array<string, mixed>> enriched components
+     */
+    private function enrichDescribeComponents(array $components, int $idLang, int $idShop, int $idCurrency): array
+    {
+        $feeModuleAvailable = $this->feeCalculator !== null && $this->feeCalculator->isFeeModuleAvailable();
+        foreach ($components as &$component) {
+            if (!isset($component['products']) || !is_array($component['products'])) {
+                continue;
+            }
+            foreach ($component['products'] as &$product) {
+                $idProduct = (int) ($product['id_product'] ?? 0);
+                $fields = $this->repository->getCustomizationFieldsForProduct($idProduct, $idLang, $idShop);
+                if ($this->feeCalculator !== null && $feeModuleAvailable) {
+                    foreach ($fields as &$field) {
+                        $config = $this->feeCalculator->getFeeConfig((int) $field['id_customization_field'], $idShop);
+                        $field['fee'] = null;
+                        if ($config !== null && $this->feeCalculator->isConfigured($config)) {
+                            $field['fee'] = $this->feeCalculator->computeDisplayAmounts($config, $idProduct, $idCurrency, $this->getDeliveryAddressId());
+                            $field['fee']['label'] = $this->feeCalculator->resolveLabel($config, $idLang);
+                            $field['fee']['apply_if_filled'] = !$this->feeCalculator->isChargeable($config, '');
+                            $field['fee']['quantity_mode'] = (string) ($config['quantity_mode'] ?? $this->feeCalculator::QUANTITY_PER_PRODUCT);
+                        }
+                    }
+                    unset($field);
+                } else {
+                    foreach ($fields as &$field) {
+                        $field['fee'] = null;
+                    }
+                    unset($field);
+                }
+                $product['customization_fields'] = $fields;
+            }
+            unset($product);
+        }
+        unset($component);
+
+        return $components;
     }
 
     /**
@@ -173,6 +235,21 @@ final class AjaxController
         $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
 
         return $response;
+    }
+
+    /**
+     * Return the current cart delivery address when one exists.
+     *
+     * The cart may be absent on the very first describe call, before the visitor
+     * has a cart, so the address lookup must be null-safe.
+     *
+     * @return int delivery address identifier, or zero when unavailable
+     */
+    private function getDeliveryAddressId(): int
+    {
+        $cart = $this->legacyContext->getContext()->cart;
+
+        return $cart !== null && (int) ($cart->id ?? 0) > 0 ? (int) ($cart->id_address_delivery ?? 0) : 0;
     }
 
     /**

@@ -52,6 +52,11 @@ services:
       0: '@dydaps.configurable_packs.repository.pack'
       1: '@dydaps.configurable_packs.service.discount_allocator'
       $context: '@=service("prestashop.adapter.legacy.context").getContext()'
+      $feeCalculator: '@dydaps.configurable_packs.service.fee_calculator'
+
+  dydaps.configurable_packs.service.fee_calculator:
+    class: 'Dydaps\ConfigurablePacks\Service\PackCustomizationFeeCalculator'
+    public: true
 
   dydaps.configurable_packs.service.stock_calculator:
     class: 'Dydaps\ConfigurablePacks\Service\PackStockCalculator'
@@ -88,11 +93,12 @@ services:
     class: 'Dydaps\ConfigurablePacks\Service\PackCartService'
     public: true
     arguments:
-      - '@dydaps.configurable_packs.repository.cart'
-      - '@dydaps.configurable_packs.service.hash'
-      - '@dydaps.configurable_packs.service.price_calculator'
-      - '@dydaps.configurable_packs.service.availability'
-      - '@dydaps.configurable_packs.validator.configuration'
+      0: '@dydaps.configurable_packs.repository.cart'
+      1: '@dydaps.configurable_packs.service.hash'
+      2: '@dydaps.configurable_packs.service.price_calculator'
+      3: '@dydaps.configurable_packs.service.availability'
+      4: '@dydaps.configurable_packs.validator.configuration'
+      $legacyContext: '@prestashop.adapter.legacy.context'
 
   dydaps.configurable_packs.service.cart_synchronizer:
     class: 'Dydaps\ConfigurablePacks\Service\PackCartSynchronizer'
@@ -219,6 +225,7 @@ services:
       - '@dydaps.configurable_packs.repository.pack'
       - '@dydaps.configurable_packs.security.front_ajax_token'
       - '@prestashop.adapter.legacy.context'
+      - '@dydaps.configurable_packs.service.fee_calculator'
 
   dydaps.configurable_packs.controller.front.ajax:
     alias: 'Dydaps\ConfigurablePacks\Controller\Front\AjaxController'

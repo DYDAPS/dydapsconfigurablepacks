@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS `PREFIX_dydaps_pack_component` (
   `discount_percent` DECIMAL(10,6) NOT NULL DEFAULT 0.000000,
   `surcharge_tax_excl` DECIMAL(20,6) NOT NULL DEFAULT 0.000000,
   `allow_customization` TINYINT(1) NOT NULL DEFAULT 0,
+  `customization_required` TINYINT(1) NOT NULL DEFAULT 0,
   `active` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id_component`),
   KEY `pack_position` (`id_pack`, `position`)

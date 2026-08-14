@@ -248,4 +248,104 @@ final class PackCartRepository
 
         return is_array($row) ? $row : null;
     }
+
+    /**
+     * Find or create the module customization field attached to a pack product.
+     *
+     * The field exists so every configured pack line can carry a native
+     * customized_data row: PrestaShop only builds cart URLs (add/update/delete)
+     * with an id_customization when customized data is present. Field labels are
+     * created in every language and every shop the product is available in.
+     *
+     * @param int $idProduct pack product identifier
+     * @param array<int, string> $namesByLang localized field names indexed by language id
+     *
+     * @return int native customization field identifier
+     */
+    public function ensurePackCustomizationField(int $idProduct, array $namesByLang): int
+    {
+        $existing = (int) \Db::getInstance()->getValue(
+            'SELECT id_customization_field FROM `' . _DB_PREFIX_ . 'customization_field`
+            WHERE id_product = ' . (int) $idProduct . ' AND type = 1 AND is_module = 1 AND is_deleted = 0
+            ORDER BY id_customization_field ASC'
+        );
+
+        if ($existing > 0) {
+            $this->ensurePackFieldLanguages($existing, $idProduct, $namesByLang);
+
+            return $existing;
+        }
+
+        \Db::getInstance()->insert('customization_field', [
+            'id_product' => (int) $idProduct,
+            'type' => 1,
+            'required' => 0,
+            'is_module' => 1,
+            'is_deleted' => 0,
+        ]);
+        $idField = (int) \Db::getInstance()->Insert_ID();
+        $this->ensurePackFieldLanguages($idField, $idProduct, $namesByLang);
+
+        return $idField;
+    }
+
+    /**
+     * Create the missing localized field labels for the pack customization field.
+     *
+     * @param int $idCustomizationField native customization field identifier
+     * @param int $idProduct pack product identifier
+     * @param array<int, string> $namesByLang localized field names indexed by language id
+     *
+     * @return void
+     */
+    private function ensurePackFieldLanguages(int $idCustomizationField, int $idProduct, array $namesByLang): void
+    {
+        $shops = \Db::getInstance()->executeS(
+            'SELECT DISTINCT id_shop FROM `' . _DB_PREFIX_ . 'product_shop` WHERE id_product = ' . (int) $idProduct
+        ) ?: [['id_shop' => 1]];
+        $languages = \Db::getInstance()->executeS('SELECT id_lang FROM `' . _DB_PREFIX_ . 'lang` WHERE active = 1') ?: [['id_lang' => 1]];
+
+        foreach ($shops as $shop) {
+            foreach ($languages as $lang) {
+                $idLang = (int) $lang['id_lang'];
+                $exists = (int) \Db::getInstance()->getValue(
+                    'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'customization_field_lang`
+                    WHERE id_customization_field = ' . (int) $idCustomizationField . '
+                    AND id_lang = ' . $idLang . ' AND id_shop = ' . (int) $shop['id_shop']
+                );
+                if ($exists > 0) {
+                    continue;
+                }
+
+                \Db::getInstance()->insert('customization_field_lang', [
+                    'id_customization_field' => (int) $idCustomizationField,
+                    'id_lang' => $idLang,
+                    'id_shop' => (int) $shop['id_shop'],
+                    'name' => pSQL((string) ($namesByLang[$idLang] ?? 'Pack configuration')),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Return the localized name of one native customization field.
+     *
+     * @param int $idCustomizationField native customization field identifier
+     * @param int $idLang language identifier
+     * @param int $idShop shop identifier
+     *
+     * @return string localized field name, or an empty string when unavailable
+     */
+    public function getCustomizationFieldName(int $idCustomizationField, int $idLang, int $idShop): string
+    {
+        if ($idCustomizationField <= 0) {
+            return '';
+        }
+
+        return (string) \Db::getInstance()->getValue(
+            'SELECT name FROM `' . _DB_PREFIX_ . 'customization_field_lang`
+            WHERE id_customization_field = ' . (int) $idCustomizationField . '
+            AND id_lang = ' . (int) $idLang . ' AND id_shop = ' . (int) $idShop
+        );
+    }
 }

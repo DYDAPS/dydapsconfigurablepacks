@@ -63,8 +63,11 @@
         ? component.allowed_combinations.map(Number)
         : [],
       allow_customization: !!component.allow_customization,
+      customization_required: !!component.customization_required,
       has_customization: !!component.has_customization,
-      combinations: Array.isArray(component.combinations) ? component.combinations : []
+      combinations: Array.isArray(component.combinations) ? component.combinations : [],
+      price_tax_excl: parseFloat(product.price_tax_excl || component.price_tax_excl || 0) || 0,
+      price_tax_incl: parseFloat(product.price_tax_incl || component.price_tax_incl || 0) || 0
     };
   }
 
@@ -99,6 +102,9 @@
           component.position = index;
         });
         field.value = JSON.stringify(components);
+        if (form) {
+          form.dispatchEvent(new CustomEvent('dydaps:componentschange'));
+        }
       }
 
       function render() {
@@ -229,11 +235,31 @@
           customCheck.disabled = !canUpdate;
           customCheck.addEventListener('change', function () {
             component.allow_customization = customCheck.checked;
-            serialize();
+            if (!customCheck.checked) {
+              component.customization_required = false;
+            }
+            render();
           });
           customItem.appendChild(customCheck);
           customItem.appendChild(el('span', {}, label('customization')));
           custom.appendChild(customItem);
+
+          var requiredItem = el('label', {'class': 'dydaps-pack-builder__check'});
+          var requiredCheck = el('input', {type: 'checkbox'});
+          requiredCheck.checked = component.allow_customization && component.customization_required;
+          requiredCheck.disabled = !canUpdate || !component.allow_customization;
+          requiredCheck.addEventListener('change', function () {
+            if (requiredCheck.checked) {
+              component.allow_customization = true;
+              customCheck.checked = true;
+              customCheck.disabled = !canUpdate;
+            }
+            component.customization_required = requiredCheck.checked;
+            serialize();
+          });
+          requiredItem.appendChild(requiredCheck);
+          requiredItem.appendChild(el('span', {}, label('customization-required')));
+          custom.appendChild(requiredItem);
         } else {
           custom.appendChild(el('small', {'class': 'text-muted'}, label('no-customization')));
         }
@@ -281,7 +307,7 @@
             })
             .then(function (payload) {
               if (!payload || payload.ok === false) {
-                throw new Error('invalid product search response');
+                throw new Error((payload && payload.error) ? payload.error : 'invalid product search response');
               }
               results.innerHTML = '';
               var rows = payload.products || [];
@@ -307,9 +333,9 @@
               };
               renderRows();
             })
-            .catch(function () {
+            .catch(function (err) {
               results.innerHTML = '';
-              results.appendChild(el('p', {'class': 'text-danger'}, label('search-error')));
+              results.appendChild(el('p', {'class': 'text-danger'}, (err && err.message) ? err.message : label('search-error')));
             });
         });
 
@@ -341,7 +367,10 @@
           component.allowed_combinations = [];
           component.combinations = [];
           component.allow_customization = false;
+          component.customization_required = false;
           component.has_customization = false;
+          component.price_tax_excl = 0;
+          component.price_tax_incl = 0;
           render();
         });
         row.appendChild(removeButton);
@@ -368,6 +397,9 @@
           component.name = product.name;
           component.reference = product.reference || '';
           component.has_customization = !!product.has_customization;
+          component.customization_required = false;
+          component.price_tax_excl = parseFloat(product.price_tax_excl) || 0;
+          component.price_tax_incl = parseFloat(product.price_tax_incl) || 0;
           component.combinations = (product.combinations || []).map(function (combination) {
             return {
               id_product_attribute: parseInt(combination.id_product_attribute, 10),

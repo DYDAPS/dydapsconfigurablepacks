@@ -55,6 +55,7 @@ if (!defined('_PS_VERSION_') || version_compare(_PS_VERSION_, '1.7.8.0', '<')) {
 final class PackPrestaShopFlowIntegrationTest
 {
     private Context $context;
+    private LegacyContext $legacyContext;
     private PackRepository $packRepository;
     private PackCartRepository $cartRepository;
     private PackCartService $cartService;
@@ -71,7 +72,8 @@ final class PackPrestaShopFlowIntegrationTest
      */
     public function __construct()
     {
-        $this->context = (new LegacyContext())->getContext();
+        $this->legacyContext = new LegacyContext();
+        $this->context = $this->legacyContext->getContext();
         $this->idShop = (int) $this->context->shop->id;
         $this->idLang = (int) $this->context->language->id;
         $this->idCurrency = (int) $this->context->currency->id;
@@ -83,7 +85,8 @@ final class PackPrestaShopFlowIntegrationTest
             new PackConfigurationHashGenerator(),
             new PackPriceCalculator($this->packRepository, new PackDiscountAllocator(), $this->context),
             new PackAvailabilityService(new PackStockCalculator(new PackStockRepository())),
-            new PackConfigurationValidator($this->packRepository)
+            new PackConfigurationValidator($this->packRepository),
+            $this->legacyContext
         );
         $this->bootAdminKernel();
     }

@@ -40,7 +40,7 @@ final class PackConfigurationService
      *
      * @var array<int, string>
      */
-    private const ALLOWED_COMPONENT_KEYS = ['id_component', 'id_product', 'id_product_attribute', 'quantity', 'customization'];
+    private const ALLOWED_COMPONENT_KEYS = ['id_component', 'id_product', 'id_product_attribute', 'quantity', 'customization', 'customization_fields'];
 
     /**
      * Convert decoded request data into a normalized configuration.
@@ -99,6 +99,7 @@ final class PackConfigurationService
                 'id_product_attribute' => (int) ($component['id_product_attribute'] ?? 0),
                 'quantity' => $quantity,
                 'customization' => $this->normalizeCustomization($component['customization'] ?? null),
+                'customization_fields' => $this->normalizeCustomizationFields($component['customization_fields'] ?? null),
             ];
         }
 
@@ -120,5 +121,46 @@ final class PackConfigurationService
         }
 
         return mb_substr(strip_tags($text), 0, 255);
+    }
+
+    /**
+     * Normalize native customization field values submitted per component.
+     *
+     * Each entry must reference a positive customization field identifier. The
+     * resulting list is sorted by field id so configuration hashes stay stable
+     * regardless of the client-side serialization order.
+     *
+     * @param mixed $customizationFields submitted field values
+     *
+     * @return list<array{
+     *     id_customization_field: int,
+     *     value: string
+     * }>
+     */
+    private function normalizeCustomizationFields($customizationFields): array
+    {
+        if (!is_array($customizationFields)) {
+            return [];
+        }
+
+        $fields = [];
+        foreach ($customizationFields as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            $idField = (int) ($field['id_customization_field'] ?? 0);
+            if ($idField <= 0) {
+                continue;
+            }
+
+            $fields[] = [
+                'id_customization_field' => $idField,
+                'value' => $this->normalizeCustomization($field['value'] ?? null),
+            ];
+        }
+
+        usort($fields, static fn (array $left, array $right): int => $left['id_customization_field'] <=> $right['id_customization_field']);
+
+        return $fields;
     }
 }

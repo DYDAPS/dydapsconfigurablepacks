@@ -4,7 +4,7 @@
     <body>
       <trans-unit id="module_display_name"><source>DYDAPS - Configurable Packs</source><target>DYDAPS - Configurable Packs</target></trans-unit>
       <trans-unit id="module_description"><source>Create and sell configurable product packs.</source><target>Create and sell configurable product packs.</target></trans-unit>
-      <trans-unit id="module_uninstall_confirm"><source>Uninstall module? Pack data can be retained or removed depending on module configuration.</source><target>Uninstall module? Pack data can be retained or removed depending on module configuration.</target></trans-unit>
+      <trans-unit id="module_uninstall_confirm"><source>Uninstall module? Pack data and the associated pack products will be permanently deleted.</source><target>Uninstall module? Pack data and the associated pack products will be permanently deleted.</target></trans-unit>
       <trans-unit id="symfony_route_unavailable"><source>The modern configuration route is not available. Please clear the Symfony cache.</source><target>The modern configuration route is not available. Please clear the Symfony cache.</target></trans-unit>
       <trans-unit id="packs_page_title"><source>Configurable Packs</source><target>Configurable Packs</target></trans-unit>
       <trans-unit id="product_extra_title"><source>Configurable pack</source><target>Configurable pack</target></trans-unit>
@@ -109,7 +109,6 @@
       <trans-unit id="catalog"><source>Catalog</source><target>Catalog</target></trans-unit>
       <trans-unit id="shipping"><source>Shipping</source><target>Shipping</target></trans-unit>
       <trans-unit id="pricing"><source>Pricing</source><target>Pricing</target></trans-unit>
-      <trans-unit id="pack_settings"><source>Pack settings</source><target>Pack settings</target></trans-unit>
       <trans-unit id="search_engine_optimization"><source>Search engine optimization</source><target>Search engine optimization</target></trans-unit>
       <trans-unit id="pack_name"><source>Pack name</source><target>Pack name</target></trans-unit>
       <trans-unit id="summary"><source>Summary</source><target>Summary</target></trans-unit>
@@ -134,6 +133,7 @@
       <trans-unit id="price_tax_excluded"><source>Price tax excluded</source><target>Price tax excluded</target></trans-unit>
       <trans-unit id="price_tax_included"><source>Price tax included</source><target>Price tax included</target></trans-unit>
       <trans-unit id="price_tax_included_help"><source>Editing the tax-inclusive price recalculates the tax-exclusive price from the tax rules group.</source><target>Editing the tax-inclusive price recalculates the tax-exclusive price from the tax rules group.</target></trans-unit>
+      <trans-unit id="component_sum_auto_help"><source>Calculated automatically from the component prices.</source><target>Calculated automatically from the component prices.</target></trans-unit>
       <trans-unit id="tax_rules"><source>Tax rules</source><target>Tax rules</target></trans-unit>
       <trans-unit id="meta_title"><source>Meta title</source><target>Meta title</target></trans-unit>
       <trans-unit id="meta_description"><source>Meta description</source><target>Meta description</target></trans-unit>
@@ -142,6 +142,7 @@
       <trans-unit id="stock_validate_only_no_decrement"><source>Do not decrement component stock</source><target>Do not decrement component stock</target></trans-unit>
       <trans-unit id="component_builder_packs_help"><source>Choose one product per pack component, the combinations customers may select, and its quantity.</source><target>Choose one product per pack component, the combinations customers may select, and its quantity.</target></trans-unit>
       <trans-unit id="allow_product_customization"><source>Allow product customization</source><target>Allow product customization</target></trans-unit>
+      <trans-unit id="customization_is_mandatory"><source>Customization is mandatory</source><target>Customization is mandatory</target></trans-unit>
       <trans-unit id="no_product_customization"><source>This product does not support customization.</source><target>This product does not support customization.</target></trans-unit>
       <trans-unit id="allowed_combinations"><source>Allowed combinations</source><target>Allowed combinations</target></trans-unit>
       <trans-unit id="all_combinations"><source>All combinations</source><target>All combinations</target></trans-unit>
@@ -162,6 +163,11 @@
       <trans-unit id="no_cover_image"><source>No cover image yet.</source><target>No cover image yet.</target></trans-unit>
       <trans-unit id="cover_upload_error"><source>Unable to upload the pack cover image.</source><target>Unable to upload the pack cover image.</target></trans-unit>
       <trans-unit id="search_error"><source>Product search failed. Please try again.</source><target>Product search failed. Please try again.</target></trans-unit>
+      <trans-unit id="add_pack"><source>Add pack</source><target>Add pack</target></trans-unit>
+      <trans-unit id="active"><source>Active</source><target>Active</target></trans-unit>
+      <trans-unit id="inactive"><source>Inactive</source><target>Inactive</target></trans-unit>
+      <trans-unit id="no_permission_view"><source>You do not have permission to view this page.</source><target>You do not have permission to view this page.</target></trans-unit>
+      <trans-unit id="no_permission_update"><source>You can view this page but you do not have permission to update packs.</source><target>You can view this page but you do not have permission to update packs.</target></trans-unit>
     </body>
   </file>
 </xliff>

@@ -28,6 +28,7 @@ use Dydaps\ConfigurablePacks\Repository\PackRepository;
 use Dydaps\ConfigurablePacks\Repository\PackStockRepository;
 use Dydaps\ConfigurablePacks\Security\FrontAjaxToken;
 use Dydaps\ConfigurablePacks\Service\PackCartSynchronizer;
+use Dydaps\ConfigurablePacks\Service\PackCustomizationFeeCalculator;
 use Dydaps\ConfigurablePacks\Service\PackDiscountAllocator;
 use Dydaps\ConfigurablePacks\Service\PackOrderService;
 use Dydaps\ConfigurablePacks\Service\PackPriceCalculator;
@@ -35,6 +36,7 @@ use Dydaps\ConfigurablePacks\Service\PackRefundService;
 use Dydaps\ConfigurablePacks\Service\PackStockMovementService;
 use Dydaps\ConfigurablePacks\Validator\PackConfigurationValidator;
 use PrestaShop\PrestaShop\Adapter\SymfonyContainer;
+use PrestaShop\PrestaShop\Core\Localization\Locale;
 
 /**
  * PrestaShop module entrypoint for configurable product packs.
@@ -58,7 +60,7 @@ final class DydapsConfigurablePacks extends Module
     {
         $this->name = 'dydapsconfigurablepacks';
         $this->tab = 'administration';
-        $this->version = '1.3.0';
+        $this->version = '1.4.0';
         $this->author = 'DYDAPS';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -67,7 +69,7 @@ final class DydapsConfigurablePacks extends Module
 
         $this->displayName = $this->trans('DYDAPS - Configurable Packs', [], 'Modules.Dydapsconfigurablepacks.Admin');
         $this->description = $this->trans('Create and sell configurable product packs.', [], 'Modules.Dydapsconfigurablepacks.Admin');
-        $this->confirmUninstall = $this->trans('Uninstall module? Pack data can be retained or removed depending on module configuration.', [], 'Modules.Dydapsconfigurablepacks.Admin');
+        $this->confirmUninstall = $this->trans('Uninstall module? Pack data and the associated pack products will be permanently deleted.', [], 'Modules.Dydapsconfigurablepacks.Admin');
         $this->ps_versions_compliancy = [
             'min' => '8.1.0',
             'max' => '9.99.999',
@@ -97,7 +99,7 @@ final class DydapsConfigurablePacks extends Module
     }
 
     /**
-     * Uninstall module metadata and optionally remove persisted pack data.
+     * Uninstall module metadata, pack products and persisted pack data.
      *
      * @return bool true when PrestaShop completes module uninstall
      */
@@ -108,6 +110,7 @@ final class DydapsConfigurablePacks extends Module
         Configuration::deleteByName('DYDAPS_CONFIGURABLE_PACKS_DELETE_DATA');
         // Legacy cleanup for a removed configuration key that no longer affects runtime behavior.
         Configuration::deleteByName('DYDAPS_CONFIGURABLE_PACKS_ROUND_PRECISION');
+        $this->deletePackProducts();
         $this->runSqlFile(__DIR__ . '/sql/uninstall.sql');
 
         return parent::uninstall();
@@ -318,7 +321,7 @@ final class DydapsConfigurablePacks extends Module
                 (int) ($params['id_shop'] ?? $this->context->shop->id ?? 0),
                 (int) ($params['id_lang'] ?? $this->context->language->id ?? 0)
             );
-            $calculatedPrice = (new PackPriceCalculator($repository, new PackDiscountAllocator(), $this->context))->calculate(
+            $calculatedPrice = (new PackPriceCalculator($repository, new PackDiscountAllocator(), $this->context, new PackCustomizationFeeCalculator()))->calculate(
                 $validatedConfiguration,
                 (int) ($params['id_shop'] ?? $this->context->shop->id ?? 0),
                 (int) ($params['id_lang'] ?? $this->context->language->id ?? 0),
@@ -395,6 +398,13 @@ final class DydapsConfigurablePacks extends Module
     {
         try {
             $product = $params['product'] ?? null;
+            if (!$product) {
+                return '';
+            }
+
+            if ($product instanceof Traversable) {
+                $product = iterator_to_array($product);
+            }
             if (!is_array($product)) {
                 return '';
             }
@@ -427,11 +437,115 @@ final class DydapsConfigurablePacks extends Module
 
             $this->context->smarty->assign([
                 'dydaps_pack_cart_contents' => $contents,
+                'dydaps_pack_cart_fees' => $this->buildCartComponentFees((array) $configurationData['components'], $product, $idCustomization),
             ]);
 
             return (string) $this->fetch('module:' . $this->name . '/views/templates/hook/cart_pack_details.tpl');
         } catch (Throwable $e) {
             $this->logError('Cart pack details rendering failed: ' . $e->getMessage());
+
+            return '';
+        }
+    }
+
+    /**
+     * Renders a customization fee summary line for pack products in the checkout summary.
+     *
+     * The fee module only builds its own summary from native customization fees,
+     * so pack fees are surfaced here using the same markup contract so the fee
+     * module's front-end keeps a single, consistent summary total.
+     *
+     * @param array<string, mixed> $params hook parameters containing the cart
+     *
+     * @return string rendered summary line or empty string
+     */
+    public function hookDisplayCheckoutSummaryBottom(array $params): string
+    {
+        return $this->renderPackCustomizationFeeSummary($params);
+    }
+
+    /**
+     * Renders a customization fee summary line in the checkout summary top position.
+     *
+     * @param array<string, mixed> $params hook parameters containing the cart
+     *
+     * @return string rendered summary line or empty string
+     */
+    public function hookDisplayCheckoutSummaryTop(array $params): string
+    {
+        return $this->renderPackCustomizationFeeSummary($params);
+    }
+
+    /**
+     * Renders a customization fee summary line for pack products on the cart page.
+     *
+     * @param array<string, mixed> $params hook parameters containing the cart
+     *
+     * @return string rendered summary line or empty string
+     */
+    public function hookDisplayShoppingCart(array $params): string
+    {
+        return $this->renderPackCustomizationFeeSummary($params);
+    }
+
+    /**
+     * Build the current cart's pack customization fee summary.
+     *
+     * @param array<string, mixed> $params hook parameters containing the cart
+     *
+     * @return string rendered summary line or empty string
+     */
+    private function renderPackCustomizationFeeSummary(array $params): string
+    {
+        try {
+            $cart = $params['cart'] ?? $this->context->cart ?? null;
+            if (!$cart instanceof Cart || !(int) $cart->id) {
+                return '';
+            }
+
+            $total = 0.0;
+            $taxIncluded = true;
+            $currency = (string) $this->context->currency->iso_code;
+            $repository = new PackCartRepository();
+            foreach ($repository->getCartConfigurations((int) $cart->id) as $configuration) {
+                $idCustomization = (int) ($configuration['id_customization'] ?? 0);
+                if ($idCustomization <= 0) {
+                    continue;
+                }
+
+                $configurationData = json_decode((string) ($configuration['configuration_json'] ?? ''), true);
+                if (!is_array($configurationData) || !isset($configurationData['components']) || !is_array($configurationData['components'])) {
+                    continue;
+                }
+
+                $product = [
+                    'id_product' => (int) ($configuration['id_product'] ?? 0),
+                    'id_customization' => $idCustomization,
+                    'cart_quantity' => max(1, (int) ($configuration['quantity'] ?? 1)),
+                ];
+                foreach ($this->buildCartComponentFees((array) $configurationData['components'], $product, $idCustomization) as $fee) {
+                    $total += (float) ($fee['amount_raw'] ?? 0.0);
+                    $taxIncluded = (bool) ($fee['tax_included'] ?? $taxIncluded);
+                    $currency = (string) ($fee['currency'] ?? $currency);
+                }
+            }
+
+            if ($total <= 0.0) {
+                return '';
+            }
+
+            $this->context->smarty->assign([
+                'dydaps_pack_fee_summary' => [
+                    'total_amount_raw' => $total,
+                    'total_amount' => $this->formatCartFeeAmount($total),
+                    'tax_included' => $taxIncluded,
+                    'currency' => $currency,
+                ],
+            ]);
+
+            return (string) $this->fetch('module:' . $this->name . '/views/templates/hook/cart_fee_summary.tpl');
+        } catch (Throwable $e) {
+            $this->logError('Cart pack fee summary failed: ' . $e->getMessage());
 
             return '';
         }
@@ -807,6 +921,18 @@ final class DydapsConfigurablePacks extends Module
                 ) ?: ('Component #' . $idComponent));
             }
 
+            $customizationFields = [];
+            foreach ((array) ($component['customization_fields'] ?? []) as $field) {
+                $value = trim((string) ($field['value'] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+                $customizationFields[] = [
+                    'name' => (new PackCartRepository())->getCustomizationFieldName((int) ($field['id_customization_field'] ?? 0), $idLang, $idShop),
+                    'value' => $value,
+                ];
+            }
+
             $lines[] = [
                 'component_name' => $componentName,
                 'product_name' => (string) $product->name,
@@ -818,11 +944,127 @@ final class DydapsConfigurablePacks extends Module
                     ) ?: $product->reference)
                     : (string) $product->reference,
                 'customization' => (string) ($component['customization'] ?? ''),
+                'customization_fields' => $customizationFields,
                 'quantity' => max(1, (int) ($component['quantity'] ?? 1)),
             ];
         }
 
         return $lines;
+    }
+
+    /**
+     * Build the customization fee summary of a stored pack cart line.
+     *
+     * The fee module only charges native customized_data rows, so it can never
+     * tax pack component fields. Component fees are recomputed here from the
+     * stored configuration and emitted with the same data contract used by the
+     * fee module cart hook, letting its front-office script render the unit and
+     * total amounts inside the pack line customization modal.
+     *
+     * @param list<array<string, mixed>> $components stored component selections
+     * @param array<string, mixed> $product presented cart product line
+     * @param int $idCustomization pack line customization identifier
+     *
+     * @return list<array<string, mixed>> fee entries, or an empty list when no fee applies
+     */
+    private function buildCartComponentFees(array $components, array $product, int $idCustomization): array
+    {
+        $feeCalculator = new PackCustomizationFeeCalculator();
+        if (!$feeCalculator->isFeeModuleAvailable()) {
+            return [];
+        }
+
+        $idShop = (int) ($product['id_shop'] ?? 0) > 0 ? (int) $product['id_shop'] : (int) $this->context->shop->id;
+        $idLang = (int) $this->context->language->id;
+        $idCurrency = (int) $this->context->currency->id;
+        $idAddress = (int) ($this->context->cart->id_address_delivery ?: $this->context->cart->id_address_invoice);
+        $quantity = max(1, (int) ($product['cart_quantity'] ?? $product['quantity'] ?? 1));
+
+        $unitTaxExcl = 0.0;
+        $unitTaxIncl = 0.0;
+        foreach ($components as $component) {
+            $fields = [];
+            foreach ((array) ($component['customization_fields'] ?? []) as $field) {
+                $value = trim((string) ($field['value'] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+                $fields[] = [
+                    'id_customization_field' => (int) ($field['id_customization_field'] ?? 0),
+                    'value' => $value,
+                ];
+            }
+            if (!$fields) {
+                continue;
+            }
+            $idProduct = (int) ($component['id_product'] ?? 0);
+            if ($idProduct <= 0) {
+                continue;
+            }
+            $componentQuantity = max(1, (int) ($component['quantity'] ?? 1));
+            $totals = $feeCalculator->computeTotals($fields, $idProduct, $idShop, $idCurrency, $idAddress, $idLang, $componentQuantity);
+            $unitTaxExcl += (float) $totals[0];
+            $unitTaxIncl += (float) $totals[1];
+        }
+
+        $useTax = !$this->displayTaxExcluded();
+        $unitAmount = round($useTax ? $unitTaxIncl : $unitTaxExcl, 6);
+        if ($unitAmount <= 0.0) {
+            return [];
+        }
+        $totalAmount = round($unitAmount * $quantity, 6);
+
+        $fee = [
+            'id_customization' => $idCustomization,
+            'amount_raw' => $totalAmount,
+            'amount_formatted' => $this->formatCartFeeAmount($totalAmount),
+            'unit_amount_raw' => $unitAmount,
+            'unit_amount_formatted' => $this->formatCartFeeAmount($unitAmount),
+            'currency' => (string) $this->context->currency->iso_code,
+            'tax_included' => $useTax,
+        ];
+        $taxSuffix = $useTax
+            ? $this->trans('tax incl.', [], 'Modules.Dydapsconfigurablepacks.Shop')
+            : $this->trans('tax excl.', [], 'Modules.Dydapsconfigurablepacks.Shop');
+        $fee['label'] = $this->trans('dont %s de personnalisation', ['%s' => (string) $fee['amount_formatted']], 'Modules.Dydapsconfigurablepacks.Shop');
+        $fee['unit_line'] = $this->trans('Unit: %s', ['%s' => (string) $fee['unit_amount_formatted'] . ' ' . $taxSuffix], 'Modules.Dydapsconfigurablepacks.Shop');
+        $fee['total_line'] = $this->trans('Total: %s', ['%s' => (string) $fee['amount_formatted'] . ' ' . $taxSuffix], 'Modules.Dydapsconfigurablepacks.Shop');
+
+        return [$fee];
+    }
+
+    /**
+     * Return whether the current customer group displays prices without taxes.
+     *
+     * @return bool true when prices are displayed tax excluded
+     */
+    private function displayTaxExcluded(): bool
+    {
+        $context = $this->context;
+        if ($context->customer && (int) $context->customer->id) {
+            return (int) Group::getPriceDisplayMethod((int) $context->customer->id_default_group) === 1;
+        }
+
+        return false;
+    }
+
+    /**
+     * Format an amount with the current currency and active locale.
+     *
+     * @param float $amount amount to format
+     *
+     * @return string localized price
+     */
+    private function formatCartFeeAmount(float $amount): string
+    {
+        $context = $this->context;
+        $locale = method_exists($context, 'getCurrentLocale') ? $context->getCurrentLocale() : null;
+        if ($locale instanceof Locale) {
+            return (string) $locale->formatPrice($amount, (string) $context->currency->iso_code);
+        }
+        $precision = max(2, (int) ($context->currency->precision ?? 2));
+
+        return sprintf('%s %s', (string) $context->currency->iso_code, number_format($amount, $precision, '.', ' '));
     }
 
     /**
@@ -880,6 +1122,11 @@ final class DydapsConfigurablePacks extends Module
             }
         }
 
+        if (!$this->tableColumnExists('dydaps_pack_component', 'customization_required')
+            && !$db->execute('ALTER TABLE `' . _DB_PREFIX_ . 'dydaps_pack_component` ADD `customization_required` TINYINT(1) NOT NULL DEFAULT 0 AFTER `allow_customization`')) {
+            return false;
+        }
+
         if (!$this->tableIndexExists('dydaps_pack_refund', 'operation_key')) {
             $db->execute(
                 'UPDATE `' . _DB_PREFIX_ . 'dydaps_pack_refund`
@@ -928,6 +1175,9 @@ final class DydapsConfigurablePacks extends Module
             'displayAdminOrderSide',
             'displayOrderDetail',
             'displayCartExtraProductInfo',
+            'displayCheckoutSummaryBottom',
+            'displayCheckoutSummaryTop',
+            'displayShoppingCart',
             'actionOrderStatusPostUpdate',
             'actionProductCancel',
             'actionOrderSlipAdd',
@@ -987,6 +1237,32 @@ final class DydapsConfigurablePacks extends Module
         $idTab = (int) Tab::getIdFromClassName(self::ADMIN_TAB_CLASS_NAME);
         if ($idTab) {
             (new Tab($idTab))->delete();
+        }
+    }
+
+    /**
+     * Remove every product created to hold a configurable pack definition.
+     *
+     * Runs before the module tables are dropped so the pack-to-product
+     * mapping is still available. A product removal failure must never block
+     * module uninstall.
+     *
+     * @return void
+     */
+    private function deletePackProducts(): void
+    {
+        try {
+            $rows = Db::getInstance()->executeS(
+                'SELECT id_product FROM `' . _DB_PREFIX_ . 'dydaps_pack`'
+            );
+            foreach (is_array($rows) ? $rows : [] as $row) {
+                $product = new Product((int) $row['id_product'], false);
+                if ((int) $product->id > 0) {
+                    $product->delete();
+                }
+            }
+        } catch (Throwable $exception) {
+            // Product deletion is best-effort and must not break uninstall.
         }
     }
 
@@ -1112,7 +1388,7 @@ final class DydapsConfigurablePacks extends Module
             new Dydaps\ConfigurablePacks\Service\PackSnapshotService(
                 $packRepository,
                 $orderRepository,
-                new PackPriceCalculator($packRepository, new PackDiscountAllocator(), $this->context),
+                new PackPriceCalculator($packRepository, new PackDiscountAllocator(), $this->context, new PackCustomizationFeeCalculator()),
                 new PackConfigurationValidator($packRepository)
             ),
             $stockMovementService

@@ -14,6 +14,8 @@
     </h3>
     <div class="card-body">
 
+      {{ form_errors(form) }}
+
       <ul class="nav nav-tabs mb-3" role="tablist">
         <li class="nav-item">
           <button type="button" class="nav-link active" role="tab" data-dydaps-tab="basics">{{ 'Basics'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</button>
@@ -43,7 +45,7 @@
 
       <div class="dydaps-form-panels">
 
-        <div class="dydaps-section is-active" data-dydaps-panel="basics">
+        <div class="dydaps-section is-active" data-dydaps-panel="basics" style="display: block;">
           <div class="dydaps-section__header">
             <h4>{{ 'Basics'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
@@ -65,18 +67,13 @@
                 </div>
                 {{ form_widget(form.cover_image, { attr: { class: 'form-control-file' } }) }}
                 {{ form_errors(form.cover_image) }}
-                {% if form.cover_image.vars.help is not empty %}
-                  <small class="form-text text-muted">
-                    {{ form.cover_image.vars.help }}
-                  </small>
-                {% endif %}
               </div>
             </div>
             {{ dydapsForms.form_group(form.reference, canUpdate) }}
           </div>
         </div>
 
-        <div class="dydaps-section" data-dydaps-panel="content">
+        <div class="dydaps-section" data-dydaps-panel="content" style="display: none;">
           <div class="dydaps-section__header">
             <h4>{{ 'Content'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
@@ -86,7 +83,7 @@
           </div>
         </div>
 
-        <div class="dydaps-section" data-dydaps-panel="catalog">
+        <div class="dydaps-section" data-dydaps-panel="catalog" style="display: none;">
           <div class="dydaps-section__header">
             <h4>{{ 'Catalog'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
@@ -121,7 +118,7 @@
           </div>
         </div>
 
-        <div class="dydaps-section" data-dydaps-panel="shipping">
+        <div class="dydaps-section" data-dydaps-panel="shipping" style="display: none;">
           <div class="dydaps-section__header">
             <h4>{{ 'Shipping'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
@@ -140,13 +137,18 @@
           </div>
         </div>
 
-        <div class="dydaps-section" data-dydaps-panel="pricing">
+        <div class="dydaps-section" data-dydaps-panel="pricing" style="display: none;">
           <div class="dydaps-section__header">
             <h4>{{ 'Pricing'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
           <div class="dydaps-section__body">
             <div class="row">
-              <div class="col-md-6">{{ dydapsForms.form_group(form.price_tax_excl, canUpdate) }}</div>
+              <div class="col-md-6">
+                {{ dydapsForms.form_group(form.price_tax_excl, canUpdate) }}
+                <small class="form-text text-muted" data-component-sum-note style="display: none;">
+                  {{ 'Calculated automatically from the component prices.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}
+                </small>
+              </div>
               <div class="col-md-6">
                 <div class="form-group">
                   <div class="form-label">
@@ -167,7 +169,7 @@
           </div>
         </div>
 
-        <div class="dydaps-section" data-dydaps-panel="pack_settings">
+        <div class="dydaps-section" data-dydaps-panel="pack_settings" style="display: none;">
           <div class="dydaps-section__header">
             <h4>{{ 'Pack settings'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
@@ -177,7 +179,7 @@
           </div>
         </div>
 
-        <div class="dydaps-section" data-dydaps-panel="seo">
+        <div class="dydaps-section" data-dydaps-panel="seo" style="display: none;">
           <div class="dydaps-section__header">
             <h4>{{ 'Search engine optimization'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
@@ -188,7 +190,7 @@
           </div>
         </div>
 
-        <div class="dydaps-section" data-dydaps-panel="components">
+        <div class="dydaps-section" data-dydaps-panel="components" style="display: none;">
           <div class="dydaps-section__header">
             <h4>{{ 'Pack components'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}</h4>
           </div>
@@ -212,6 +214,7 @@
               data-label-up="{{ 'Move up'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
               data-label-down="{{ 'Move down'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
               data-label-customization="{{ 'Allow product customization'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
+              data-label-customization-required="{{ 'Customization is mandatory'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
               data-label-no-customization="{{ 'This product does not support customization.'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
               data-label-combinations="{{ 'Allowed combinations'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
               data-label-all-combinations="{{ 'All combinations'|trans({}, 'Modules.Dydapsconfigurablepacks.Admin') }}"
@@ -260,7 +263,18 @@
           button.classList.toggle('active', button.getAttribute('data-dydaps-tab') === key);
         });
         tabPanels.forEach(function (panel) {
-          panel.classList.toggle('is-active', panel.getAttribute('data-dydaps-panel') === key);
+          var active = panel.getAttribute('data-dydaps-panel') === key;
+          panel.classList.toggle('is-active', active);
+          panel.style.display = active ? 'block' : 'none';
+          if (active && window.DydapsPacksRte) {
+            window.DydapsPacksRte.init();
+            panel.querySelectorAll('textarea.autoload_rte').forEach(function (textarea) {
+              var editor = window.tinyMCE.get(textarea.id);
+              if (editor) {
+                editor.setContent(editor.getContent());
+              }
+            });
+          }
         });
       }
       tabButtons.forEach(function (button) {
@@ -278,7 +292,18 @@
             candidate.classList.toggle('is-active', candidate === tab);
           });
           localePanes.forEach(function (pane) {
-            pane.classList.toggle('is-active', pane.getAttribute('data-dydaps-pane') === locale);
+            var active = pane.getAttribute('data-dydaps-pane') === locale;
+            pane.classList.toggle('is-active', active);
+            pane.style.display = active ? 'block' : 'none';
+            if (active && window.DydapsPacksRte) {
+              window.DydapsPacksRte.init();
+              pane.querySelectorAll('textarea.autoload_rte').forEach(function (textarea) {
+                var editor = window.tinyMCE.get(textarea.id);
+                if (editor) {
+                  editor.setContent(editor.getContent());
+                }
+              });
+            }
           });
         }
         localeTabs.forEach(function (tab) {
@@ -319,6 +344,60 @@
       }
       applyTtc();
 
+      var pricingSelect = form.querySelector('[name="pack_general[pricing_method]"]');
+      var componentsField = form.querySelector('[name$="[components_json]"]');
+      var componentSumNote = form.querySelector('[data-component-sum-note]');
+      function readComponentPrices() {
+        var totalExcl = 0;
+        var totalIncl = 0;
+        try {
+          var components = JSON.parse(componentsField ? (componentsField.value || '[]') : '[]');
+          components.forEach(function (component) {
+            var id = parseInt(component.id_product || 0, 10);
+            var qty = Math.max(1, parseInt(component.quantity || 1, 10));
+            if (id > 0) {
+              totalExcl += (parseFloat(component.price_tax_excl) || 0) * qty;
+              totalIncl += (parseFloat(component.price_tax_incl) || 0) * qty;
+            }
+          });
+        } catch (error) {
+        }
+        return {excl: totalExcl, incl: totalIncl};
+      }
+      function applyPricingMethod() {
+        var isSum = pricingSelect && pricingSelect.value === 'component_sum';
+        if (isSum) {
+          var totals = readComponentPrices();
+          if (priceInput) {
+            priceInput.value = totals.excl.toFixed(6);
+            priceInput.disabled = true;
+          }
+          if (ttcInput) {
+            ttcInput.value = totals.incl.toFixed(6);
+            ttcInput.disabled = true;
+          }
+          if (componentSumNote) {
+            componentSumNote.style.display = '';
+          }
+        } else {
+          if (priceInput) {
+            priceInput.disabled = false;
+          }
+          if (ttcInput) {
+            ttcInput.disabled = false;
+          }
+          if (componentSumNote) {
+            componentSumNote.style.display = 'none';
+          }
+          applyTtc();
+        }
+      }
+      if (pricingSelect) {
+        pricingSelect.addEventListener('change', applyPricingMethod);
+      }
+      form.addEventListener('dydaps:componentschange', applyPricingMethod);
+      applyPricingMethod();
+
       var deliveryType = form.querySelector('[name="pack_general[delivery_time_type]"]');
       var specificWrapper = form.querySelector('[data-delivery-specific-wrapper]');
       function applyDeliveryType() {
@@ -334,23 +413,56 @@
 
       var defaultCategorySelect = form.querySelector('[name="pack_general[default_category]"]');
       var categoryCheckboxes = form.querySelectorAll('[data-default-category-id]');
-      function applyDefaultCategory() {
+      var selectedDefaultCategory = defaultCategorySelect ? defaultCategorySelect.value : '';
+      function defaultCategoryLabel(categoryId) {
+        var checkbox = form.querySelector('[data-default-category-id="' + categoryId + '"]');
+        if (!checkbox || !checkbox.parentElement) {
+          return null;
+        }
+        var labelNode = checkbox.parentElement.querySelector('span');
+        return labelNode ? labelNode.textContent.trim() : null;
+      }
+      function rebuildDefaultCategoryOptions() {
         if (!defaultCategorySelect) {
           return;
         }
-        var firstChecked = null;
+        var options = [];
         categoryCheckboxes.forEach(function (checkbox) {
-          if (checkbox.checked && firstChecked === null) {
-            firstChecked = checkbox.getAttribute('data-default-category-id');
+          if (!checkbox.checked) {
+            return;
+          }
+          var categoryId = checkbox.getAttribute('data-default-category-id');
+          var labelText = defaultCategoryLabel(categoryId);
+          if (labelText !== null) {
+            options.push({value: categoryId, label: labelText});
           }
         });
-        if (firstChecked !== null && !defaultCategorySelect.value) {
-          defaultCategorySelect.value = firstChecked;
+        var keepsSelection = options.some(function (option) {
+          return option.value === selectedDefaultCategory;
+        });
+        if (!keepsSelection && options.length) {
+          selectedDefaultCategory = options[0].value;
         }
+        defaultCategorySelect.innerHTML = '';
+        options.forEach(function (option) {
+          var optionNode = document.createElement('option');
+          optionNode.value = option.value;
+          optionNode.textContent = option.label;
+          if (option.value === selectedDefaultCategory) {
+            optionNode.selected = true;
+          }
+          defaultCategorySelect.appendChild(optionNode);
+        });
+      }
+      if (defaultCategorySelect) {
+        defaultCategorySelect.addEventListener('change', function () {
+          selectedDefaultCategory = defaultCategorySelect.value;
+        });
       }
       categoryCheckboxes.forEach(function (checkbox) {
-        checkbox.addEventListener('change', applyDefaultCategory);
+        checkbox.addEventListener('change', rebuildDefaultCategoryOptions);
       });
+      rebuildDefaultCategoryOptions();
 
       var defaultLangInput = form.querySelector('.dydaps-pack-name[data-name-default-lang]');
       var friendlyInputs = form.querySelectorAll('.dydaps-friendly-url');
@@ -391,10 +503,11 @@
 
 {% block stylesheets %}
   {{ parent() }}
-  <link rel="stylesheet" href="{{ asset('../modules/dydapsconfigurablepacks/views/css/admin-pack-builder.css') }}">
+  <link rel="stylesheet" href="{{ asset('/modules/dydapsconfigurablepacks/views/css/admin-pack-builder.css') }}?v=1.4.0">
 {% endblock %}
 
 {% block javascripts %}
   {{ parent() }}
-  <script src="{{ asset('../modules/dydapsconfigurablepacks/views/js/admin-pack-builder.js') }}"></script>
+  <script src="{{ asset('/modules/dydapsconfigurablepacks/views/js/admin-rte.js') }}?v=1.4.0"></script>
+  <script src="{{ asset('/modules/dydapsconfigurablepacks/views/js/admin-pack-builder.js') }}?v=1.4.0"></script>
 {% endblock %}

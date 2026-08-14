@@ -38,19 +38,22 @@ final class PackPriceCalculator
     private PackRepository $repository;
     private PackDiscountAllocator $allocator;
     private \Context $context;
+    private ?PackCustomizationFeeCalculator $feeCalculator;
 
     /**
      * @param PackRepository $repository repository used to load pack definitions
      * @param PackDiscountAllocator $allocator service used to split pack-level discounts by component
      * @param \Context $context injected legacy context used to build the temporary price context
+     * @param PackCustomizationFeeCalculator|null $feeCalculator optional calculator applying customization fees per component
      *
      * @return void
      */
-    public function __construct(PackRepository $repository, PackDiscountAllocator $allocator, \Context $context)
+    public function __construct(PackRepository $repository, PackDiscountAllocator $allocator, \Context $context, ?PackCustomizationFeeCalculator $feeCalculator = null)
     {
         $this->repository = $repository;
         $this->allocator = $allocator;
         $this->context = $context;
+        $this->feeCalculator = $feeCalculator;
     }
 
     /**
@@ -74,6 +77,8 @@ final class PackPriceCalculator
         $components = $this->buildComponentPriceRows($configuration, (int) $pack['id_pack'], $idShop, $idLang, $idCurrency, $idCustomer);
         $sumTaxExcl = array_sum(array_map(static fn (array $row): float => (float) $row['total_tax_excl'], $components));
         $sumTaxIncl = array_sum(array_map(static fn (array $row): float => (float) $row['total_tax_incl'], $components));
+        $customizationFeesTaxExcl = array_sum(array_map(static fn (array $row): float => (float) $row['customization_fee_tax_excl'], $components));
+        $customizationFeesTaxIncl = array_sum(array_map(static fn (array $row): float => (float) $row['customization_fee_tax_incl'], $components));
 
         $unitTaxExcl = $sumTaxExcl;
         $unitTaxIncl = $sumTaxIncl;
@@ -82,7 +87,7 @@ final class PackPriceCalculator
 
         switch ((string) $pack['pricing_method']) {
             case PackConfig::PRICING_FIXED:
-                $unitTaxExcl = (float) $pack['fixed_price_tax_excl'];
+                $unitTaxExcl = (float) $pack['fixed_price_tax_excl'] + $customizationFeesTaxExcl;
                 // Fixed tax-excluded prices are converted with the weighted
                 // component tax ratio to preserve the configured component mix.
                 $unitTaxIncl = $this->convertTaxExclToWeightedTaxIncl($unitTaxExcl, $sumTaxExcl, $sumTaxIncl);
@@ -100,7 +105,7 @@ final class PackPriceCalculator
                 $unitTaxIncl = $sumTaxIncl - $discountTaxIncl;
                 break;
             case PackConfig::PRICING_FORCED:
-                $unitTaxExcl = (float) $pack['forced_price_tax_excl'];
+                $unitTaxExcl = (float) $pack['forced_price_tax_excl'] + $customizationFeesTaxExcl;
                 $unitTaxIncl = $this->convertTaxExclToWeightedTaxIncl($unitTaxExcl, $sumTaxExcl, $sumTaxIncl);
                 $discountTaxExcl = max(0.0, $sumTaxExcl - $unitTaxExcl);
                 $discountTaxIncl = max(0.0, $sumTaxIncl - $unitTaxIncl);
@@ -138,7 +143,9 @@ final class PackPriceCalculator
      *     product_reference: string,
      *     combination_reference: string,
      *     attributes_text: string,
-     *     customization: string
+     *     customization: string,
+     *     customization_fee_tax_excl: float,
+     *     customization_fee_tax_incl: float
      * }>
      */
     private function buildComponentPriceRows(PackConfiguration $configuration, int $idPack, int $idShop, int $idLang, int $idCurrency, int $idCustomer): array
@@ -163,6 +170,23 @@ final class PackPriceCalculator
             $product = new \Product($idProduct, false, $idLang, $idShop);
             $taxRate = $unitExcl > 0 ? (($unitIncl / $unitExcl) - 1) * 100 : 0.0;
 
+            $feeTotals = [0.0, 0.0];
+            if ($this->feeCalculator !== null) {
+                $cart = $this->context->cart;
+                $idAddressDelivery = $cart !== null && (int) ($cart->id ?? 0) > 0 ? (int) ($cart->id_address_delivery ?? 0) : 0;
+                $feeTotals = $this->feeCalculator->computeTotals(
+                    (array) ($component['customization_fields'] ?? []),
+                    $idProduct,
+                    $idShop,
+                    $idCurrency,
+                    $idAddressDelivery,
+                    $idLang,
+                    $qty
+                );
+            }
+            $unitExcl += $feeTotals[0];
+            $unitIncl += $feeTotals[1];
+
             $rows[] = [
                 'id_component' => (int) $component['id_component'],
                 'id_product' => $idProduct,
@@ -179,6 +203,8 @@ final class PackPriceCalculator
                 'combination_reference' => $idAttribute > 0 ? $this->repository->getCombinationReference($idAttribute) : '',
                 'attributes_text' => $idAttribute > 0 ? strip_tags(\Product::getProductName($idProduct, $idAttribute, $idLang)) : '',
                 'customization' => trim((string) ($component['customization'] ?? '')),
+                'customization_fee_tax_excl' => $feeTotals[0],
+                'customization_fee_tax_incl' => $feeTotals[1],
             ];
         }
 

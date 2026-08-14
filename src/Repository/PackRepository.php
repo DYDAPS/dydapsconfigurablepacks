@@ -164,6 +164,7 @@ final class PackRepository
                 'discount_percent' => 0,
                 'surcharge_tax_excl' => 0,
                 'allow_customization' => (int) !empty($component['allow_customization']),
+                'customization_required' => (int) !empty($component['customization_required']),
                 'active' => 1,
             ])) {
                 throw new \RuntimeException('Unable to save pack component.');
@@ -230,8 +231,11 @@ final class PackRepository
                     'SELECT reference FROM `' . _DB_PREFIX_ . 'product` WHERE id_product = ' . (int) $idProduct
                 )
                 : '';
+            $component['price_tax_excl'] = $idProduct > 0 ? (float) \Product::getPriceStatic((int) $idProduct, false, null, 6) : 0.0;
+            $component['price_tax_incl'] = $idProduct > 0 ? (float) \Product::getPriceStatic((int) $idProduct, true, null, 6) : 0.0;
             $component['allowed_combinations'] = array_values(array_unique($allowed));
             $component['allow_customization'] = (int) ($component['allow_customization'] ?? 0) === 1;
+            $component['customization_required'] = (int) ($component['customization_required'] ?? 0) === 1;
             $component['has_customization'] = $idProduct > 0 && $this->productHasCustomization($idProduct);
             $component['combinations'] = $idProduct > 0
                 ? array_values(array_map(static fn (array $combination): array => [
@@ -300,6 +304,7 @@ final class PackRepository
                 ];
             }
             $component['allow_customization'] = (int) ($component['allow_customization'] ?? 0) === 1;
+            $component['customization_required'] = (int) ($component['customization_required'] ?? 0) === 1;
             $component['products'] = $products;
         }
         unset($component);
@@ -330,7 +335,7 @@ final class PackRepository
      */
     public function searchProductsForBuilder(string $query, int $idShop, int $idLang): array
     {
-        $sql = 'SELECT p.id_product, pl.name, p.reference, p.link_rewrite, ps.active
+        $sql = 'SELECT p.id_product, pl.name, p.reference, pl.link_rewrite, ps.active
             FROM `' . _DB_PREFIX_ . 'product` p
             INNER JOIN `' . _DB_PREFIX_ . 'product_shop` ps
                 ON ps.id_product = p.id_product AND ps.id_shop = ' . (int) $idShop . '
@@ -344,7 +349,7 @@ final class PackRepository
                     OR p.reference LIKE "%' . pSQL($query) . '%"
                     OR pa_ref.reference LIKE "%' . pSQL($query) . '%"
                 )
-            GROUP BY p.id_product, pl.name, p.reference, p.link_rewrite, ps.active
+            GROUP BY p.id_product, pl.name, p.reference, pl.link_rewrite, ps.active
             ORDER BY pl.name ASC, p.id_product ASC
             LIMIT 20';
 
@@ -364,6 +369,8 @@ final class PackRepository
                 'image' => $image,
                 'has_combinations' => (bool) $combinations,
                 'has_customization' => $this->productHasCustomization($idProduct),
+                'price_tax_excl' => (float) \Product::getPriceStatic($idProduct, false, null, 6),
+                'price_tax_incl' => (float) \Product::getPriceStatic($idProduct, true, null, 6),
                 'combinations' => array_map(static fn (array $combination): array => [
                     'id_product_attribute' => (int) $combination['id_product_attribute'],
                     'name' => (string) $combination['attributes_text'],
@@ -378,8 +385,8 @@ final class PackRepository
     /**
      * Return whether a product exposes native customization fields.
      *
-     * Checks the legacy and the PrestaShop 9 replacement table so the flag keeps
-     * working across supported versions.
+     * Customization fields are soft-deleted through the is_deleted flag on both
+     * PrestaShop 8 and 9.
      *
      * @param int $idProduct product identifier
      *
@@ -389,16 +396,59 @@ final class PackRepository
     {
         $count = (int) \Db::getInstance()->getValue(
             'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'customization_field`
-            WHERE id_product = ' . (int) $idProduct . ' AND active = 1'
+            WHERE id_product = ' . (int) $idProduct . ' AND is_deleted = 0'
         );
-        if ($count === 0) {
-            $count = (int) \Db::getInstance()->getValue(
-                'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'product_customization_field`
-                WHERE id_product = ' . (int) $idProduct
-            );
-        }
 
         return $count > 0;
+    }
+
+    /**
+     * Return active native customization fields of one product.
+     *
+     * Field names are loaded in the requested language and shop; empty names
+     * fall back to a technical placeholder so the configurator never renders a
+     * blank label.
+     *
+     * @param int $idProduct product identifier
+     * @param int $idLang language identifier used for field labels
+     * @param int $idShop shop identifier used for field labels
+     *
+     * @return list<array{
+     *     id_customization_field: int,
+     *     type: int,
+     *     required: int,
+     *     name: string
+     * }>
+     */
+    public function getCustomizationFieldsForProduct(int $idProduct, int $idLang, int $idShop): array
+    {
+        if ($idProduct <= 0) {
+            return [];
+        }
+
+        $rows = \Db::getInstance()->executeS(
+            'SELECT cf.id_customization_field, cf.type, cf.required, cfl.name
+            FROM `' . _DB_PREFIX_ . 'customization_field` cf
+            LEFT JOIN `' . _DB_PREFIX_ . 'customization_field_lang` cfl
+                ON cfl.id_customization_field = cf.id_customization_field
+                AND cfl.id_lang = ' . (int) $idLang . ' AND cfl.id_shop = ' . (int) $idShop . '
+            WHERE cf.id_product = ' . (int) $idProduct . ' AND cf.is_deleted = 0
+            ORDER BY cf.id_customization_field ASC'
+        ) ?: [];
+
+        $fields = [];
+        foreach ($rows as $row) {
+            $fields[] = [
+                'id_customization_field' => (int) $row['id_customization_field'],
+                'type' => (int) ($row['type'] ?? 1),
+                'required' => (int) ($row['required'] ?? 0),
+                'name' => trim((string) ($row['name'] ?? '')) !== ''
+                    ? (string) $row['name']
+                    : sprintf('Customization #%d', (int) $row['id_customization_field']),
+            ];
+        }
+
+        return $fields;
     }
 
     /**

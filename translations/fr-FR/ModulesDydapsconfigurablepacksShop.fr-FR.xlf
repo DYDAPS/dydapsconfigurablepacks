@@ -25,9 +25,22 @@
       <trans-unit id="select_variant"><source>Select a combination</source><target>Sélectionnez une déclinaison</target></trans-unit>
       <trans-unit id="customization"><source>Customization</source><target>Personnalisation</target></trans-unit>
       <trans-unit id="customization_placeholder"><source>Customize this component (optional)</source><target>Personnalisez ce composant (facultatif)</target></trans-unit>
+      <trans-unit id="customization_required_placeholder"><source>Customize this component (required)</source><target>Personnalisez ce composant (obligatoire)</target></trans-unit>
+      <trans-unit id="customization_required_message"><source>Please fill in the required customization before adding the pack to your cart.</source><target>Veuillez renseigner la personnalisation obligatoire avant d'ajouter le pack au panier.</target></trans-unit>
       <trans-unit id="loading_configuration"><source>Loading pack configuration...</source><target>Chargement de la configuration du pack...</target></trans-unit>
       <trans-unit id="pack_price"><source>Pack price:</source><target>Prix du pack :</target></trans-unit>
       <trans-unit id="pack_contents"><source>Pack contents:</source><target>Contenu du pack :</target></trans-unit>
+      <trans-unit id="pack_configuration_field_name"><source>Pack configuration</source><target>Configuration du pack</target></trans-unit>
+      <trans-unit id="customization_field_required"><source>(required)</source><target>(obligatoire)</target></trans-unit>
+      <trans-unit id="customization_field_optional"><source>(optional)</source><target>(facultatif)</target></trans-unit>
+      <trans-unit id="customization_fee"><source>Customization fee</source><target>Frais de personnalisation</target></trans-unit>
+      <trans-unit id="select_option"><source>Select an option</source><target>Sélectionnez une option</target></trans-unit>
+      <trans-unit id="cart_fee_label_dont"><source>dont %s de personnalisation</source><target>dont %s de personnalisation</target></trans-unit>
+      <trans-unit id="cart_fee_unit"><source>Unit: %s</source><target>Unité : %s</target></trans-unit>
+      <trans-unit id="cart_fee_total"><source>Total: %s</source><target>Total : %s</target></trans-unit>
+      <trans-unit id="cart_fee_tax_included"><source>tax incl.</source><target>TTC</target></trans-unit>
+      <trans-unit id="cart_fee_tax_excluded"><source>tax excl.</source><target>HT</target></trans-unit>
+      <trans-unit id="cart_fee_summary_of_which"><source>of which</source><target>dont</target></trans-unit>
     </body>
   </file>
 </xliff>

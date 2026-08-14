@@ -22,6 +22,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use Dydaps\ConfigurablePacks\Config\PackConfig;
+use PrestaShopBundle\Form\Admin\Type\FormattedTextareaType;
 use PrestaShopBundle\Form\Admin\Type\TranslatableType;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -57,6 +58,10 @@ final class PackGeneralType extends TranslatorAwareType
         $idLang = (int) \Configuration::get('PS_LANG_DEFAULT');
         $categoryChoices = $options['category_choices'] ?: $this->getCategoryChoices($idLang);
         $taxRuleChoices = $options['tax_rule_choices'] ?: $this->getTaxRuleChoices();
+        $shortDescriptionLimit = (int) \Configuration::get('PS_PRODUCT_SHORT_DESC_LIMIT');
+        if ($shortDescriptionLimit <= 0) {
+            $shortDescriptionLimit = 800;
+        }
 
         $builder
             ->add('cover_image', FileType::class, [
@@ -86,10 +91,12 @@ final class PackGeneralType extends TranslatorAwareType
             ->add('product_summary', TranslatableType::class, [
                 'label' => $this->trans('Summary', 'Modules.Dydapsconfigurablepacks.Admin'),
                 'required' => false,
-                'type' => TextareaType::class,
+                'type' => FormattedTextareaType::class,
                 'options' => [
                     'required' => false,
+                    'limit' => $shortDescriptionLimit,
                     'attr' => [
+                        'class' => 'autoload_rte',
                         'rows' => 4,
                     ],
                 ],
@@ -97,10 +104,12 @@ final class PackGeneralType extends TranslatorAwareType
             ->add('product_description', TranslatableType::class, [
                 'label' => $this->trans('Description', 'Modules.Dydapsconfigurablepacks.Admin'),
                 'required' => false,
-                'type' => TextareaType::class,
+                'type' => FormattedTextareaType::class,
                 'options' => [
                     'required' => false,
+                    'limit' => FormattedTextareaType::LIMIT_MEDIUMTEXT_UTF8_MB4,
                     'attr' => [
+                        'class' => 'autoload_rte',
                         'rows' => 8,
                     ],
                 ],

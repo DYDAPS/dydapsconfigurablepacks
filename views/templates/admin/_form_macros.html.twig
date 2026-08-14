@@ -6,12 +6,6 @@
     <div class="form-field">
       {{ form_widget(field, canUpdate ? {} : { attr: { disabled: 'disabled' } }) }}
       {{ form_errors(field) }}
-
-      {% if field.vars.help is not empty %}
-        <small class="form-text text-muted">
-          {{ field.vars.help }}
-        </small>
-      {% endif %}
     </div>
   </div>
 {% endmacro %}
@@ -23,12 +17,24 @@
     </div>
     <div class="form-field">
       {% if field.vars.compound and field.children|length > 0 %}
+        {% set activeLocale = null %}
+        {% for child in field %}
+          {% if child.vars.name == defaultLocaleId %}
+            {% set activeLocale = child.vars.name %}
+          {% endif %}
+        {% endfor %}
+        {% if activeLocale is null %}
+          {% set firstChild = field.children|first %}
+          {% if firstChild is not null %}
+            {% set activeLocale = firstChild.vars.name %}
+          {% endif %}
+        {% endif %}
         <div class="dydaps-locales" data-dydaps-locales>
           <div class="dydaps-locales__tabs" role="tablist">
             {% for child in field %}
               <button
                 type="button"
-                class="dydaps-locales__tab{% if child.vars.name == defaultLocaleId or loop.first %} is-active{% endif %}"
+                class="dydaps-locales__tab{% if child.vars.name == activeLocale %} is-active{% endif %}"
                 role="tab"
                 data-dydaps-locale="{{ child.vars.name }}"
               >
@@ -39,9 +45,10 @@
           <div class="dydaps-locales__panes">
             {% for child in field %}
               <div
-                class="dydaps-locales__pane{% if child.vars.name == defaultLocaleId or loop.first %} is-active{% endif %}"
+                class="dydaps-locales__pane{% if child.vars.name == activeLocale %} is-active{% endif %}"
                 role="tabpanel"
                 data-dydaps-pane="{{ child.vars.name }}"
+                style="display: {% if child.vars.name == activeLocale %}block{% else %}none{% endif %};"
               >
                 {{ form_widget(child) }}
               </div>

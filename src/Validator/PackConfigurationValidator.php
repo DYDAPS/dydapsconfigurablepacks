@@ -153,19 +153,26 @@ final class PackConfigurationValidator
                 $errors[] = 'A selected component quantity is outside the allowed range.';
             }
 
-            $product = new \Product((int) $selection['id_product'], false, $idLang, $idShop);
-            if (!\Validate::isLoadedObject($product) || !$this->repository->isProductAvailableInShop((int) $selection['id_product'], $idShop)) {
+            $idSelectedProduct = (int) $selection['id_product'];
+            $product = new \Product($idSelectedProduct, false, $idLang, $idShop);
+            if (!\Validate::isLoadedObject($product) || !$this->repository->isProductAvailableInShop($idSelectedProduct, $idShop)) {
                 $errors[] = 'A selected product is not available in this shop.';
             }
             $idAttribute = (int) ($selection['id_product_attribute'] ?? 0);
             if ($idAttribute > 0) {
                 $combination = new \Combination($idAttribute);
-                if (!\Validate::isLoadedObject($combination) || (int) $combination->id_product !== (int) $selection['id_product']) {
+                if (!\Validate::isLoadedObject($combination) || (int) $combination->id_product !== $idSelectedProduct) {
                     $errors[] = 'A selected combination does not belong to the selected product.';
                 }
                 if (!$this->repository->isCombinationAvailableInShop($idAttribute, $idShop)) {
                     $errors[] = 'A selected combination is not available in this shop.';
                 }
+            }
+
+            $customizationFields = $this->normalizeCustomizationFields($selection['customization_fields'] ?? [], $idSelectedProduct, $idLang, $idShop, $errors);
+
+            if ((int) ($component['customization_required'] ?? 0) === 1 && $customization === '' && $customizationFields === []) {
+                $errors[] = 'A required customization is empty.';
             }
 
             $normalized[] = [
@@ -174,6 +181,7 @@ final class PackConfigurationValidator
                 'id_product_attribute' => (int) $matchedSelection['id_product_attribute'],
                 'quantity' => $quantity,
                 'customization' => $customization,
+                'customization_fields' => $customizationFields,
             ];
         }
 
@@ -182,5 +190,63 @@ final class PackConfigurationValidator
         }
 
         return new PackConfiguration($configuration->getIdProduct(), $normalized, $configuration->getQuantity());
+    }
+
+    /**
+     * Rebuild safe native customization field values for one selected product.
+     *
+     * Submitted fields that do not belong to the selected product are dropped
+     * so untrusted identifiers cannot leak into stored configurations. Required
+     * fields must carry a non-empty sanitized value.
+     *
+     * @param array<int, mixed> $selection submitted customization field values
+     * @param int $idProduct selected product identifier
+     * @param int $idLang language identifier used for field lookup
+     * @param int $idShop shop identifier used for field lookup
+     * @param list<string> $errors error list mutated by reference
+     *
+     * @return list<array{
+     *     id_customization_field: int,
+     *     value: string
+     * }>
+     */
+    private function normalizeCustomizationFields(array $selection, int $idProduct, int $idLang, int $idShop, array &$errors): array
+    {
+        $fieldsById = [];
+        foreach ($this->repository->getCustomizationFieldsForProduct($idProduct, $idLang, $idShop) as $field) {
+            $fieldsById[(int) $field['id_customization_field']] = $field;
+        }
+
+        $normalized = [];
+        $submittedIds = [];
+        foreach ($selection as $submitted) {
+            if (!is_array($submitted)) {
+                continue;
+            }
+            $idField = (int) ($submitted['id_customization_field'] ?? 0);
+            if ($idField <= 0 || !isset($fieldsById[$idField])) {
+                $errors[] = 'An unknown customization field was submitted.';
+                continue;
+            }
+
+            $submittedIds[$idField] = true;
+            $value = trim(strip_tags((string) ($submitted['value'] ?? '')));
+            if ((int) $fieldsById[$idField]['required'] === 1 && $value === '') {
+                $errors[] = 'A required customization field is empty.';
+            }
+
+            $normalized[] = [
+                'id_customization_field' => $idField,
+                'value' => mb_substr($value, 0, 255),
+            ];
+        }
+
+        foreach ($fieldsById as $idField => $field) {
+            if ((int) $field['required'] === 1 && !isset($submittedIds[$idField])) {
+                $errors[] = 'A required customization field is empty.';
+            }
+        }
+
+        return $normalized;
     }
 }

@@ -4,7 +4,7 @@
     <body>
       <trans-unit id="module_display_name"><source>DYDAPS - Configurable Packs</source><target>DYDAPS - Packs configurables</target></trans-unit>
       <trans-unit id="module_description"><source>Create and sell configurable product packs.</source><target>Créez et vendez des packs de produits configurables.</target></trans-unit>
-      <trans-unit id="module_uninstall_confirm"><source>Uninstall module? Pack data can be retained or removed depending on module configuration.</source><target>Désinstaller le module ? Les données des packs peuvent être conservées ou supprimées selon la configuration du module.</target></trans-unit>
+      <trans-unit id="module_uninstall_confirm"><source>Uninstall module? Pack data and the associated pack products will be permanently deleted.</source><target>Désinstaller le module ? Les données des packs et les produits packs associés seront définitivement supprimés.</target></trans-unit>
       <trans-unit id="symfony_route_unavailable"><source>The modern configuration route is not available. Please clear the Symfony cache.</source><target>La route de configuration moderne n'est pas disponible. Veuillez vider le cache Symfony.</target></trans-unit>
       <trans-unit id="packs_page_title"><source>Configurable Packs</source><target>Packs configurables</target></trans-unit>
       <trans-unit id="product_extra_title"><source>Configurable pack</source><target>Pack configurable</target></trans-unit>
@@ -133,6 +133,7 @@
       <trans-unit id="price_tax_excluded"><source>Price tax excluded</source><target>Prix hors taxes</target></trans-unit>
       <trans-unit id="price_tax_included"><source>Price tax included</source><target>Prix taxes comprises</target></trans-unit>
       <trans-unit id="price_tax_included_help"><source>Editing the tax-inclusive price recalculates the tax-exclusive price from the tax rules group.</source><target>La modification du prix TTC recalcule le prix HT à partir de la règle de taxes.</target></trans-unit>
+      <trans-unit id="component_sum_auto_help"><source>Calculated automatically from the component prices.</source><target>Calculé automatiquement à partir des prix des composants.</target></trans-unit>
       <trans-unit id="tax_rules"><source>Tax rules</source><target>Règles de taxes</target></trans-unit>
       <trans-unit id="meta_title"><source>Meta title</source><target>Balise title</target></trans-unit>
       <trans-unit id="meta_description"><source>Meta description</source><target>Balise meta description</target></trans-unit>
@@ -141,6 +142,7 @@
       <trans-unit id="stock_validate_only_no_decrement"><source>Do not decrement component stock</source><target>Ne pas décrémenter le stock des composants</target></trans-unit>
       <trans-unit id="component_builder_packs_help"><source>Choose one product per pack component, the combinations customers may select, and its quantity.</source><target>Choisissez un produit par composant du pack, les déclinaisons que les clients peuvent sélectionner, ainsi que sa quantité.</target></trans-unit>
       <trans-unit id="allow_product_customization"><source>Allow product customization</source><target>Autoriser la personnalisation du produit</target></trans-unit>
+      <trans-unit id="customization_is_mandatory"><source>Customization is mandatory</source><target>Personnalisation obligatoire</target></trans-unit>
       <trans-unit id="no_product_customization"><source>This product does not support customization.</source><target>Ce produit ne prend pas en charge la personnalisation.</target></trans-unit>
       <trans-unit id="allowed_combinations"><source>Allowed combinations</source><target>Déclinaisons autorisées</target></trans-unit>
       <trans-unit id="all_combinations"><source>All combinations</source><target>Toutes les déclinaisons</target></trans-unit>
@@ -161,6 +163,11 @@
       <trans-unit id="no_cover_image"><source>No cover image yet.</source><target>Aucune image de couverture pour le moment.</target></trans-unit>
       <trans-unit id="cover_upload_error"><source>Unable to upload the pack cover image.</source><target>Impossible de téléverser l'image de couverture du pack.</target></trans-unit>
       <trans-unit id="search_error"><source>Product search failed. Please try again.</source><target>La recherche de produit a échoué. Veuillez réessayer.</target></trans-unit>
+      <trans-unit id="add_pack"><source>Add pack</source><target>Ajouter un pack</target></trans-unit>
+      <trans-unit id="active"><source>Active</source><target>Actif</target></trans-unit>
+      <trans-unit id="inactive"><source>Inactive</source><target>Inactif</target></trans-unit>
+      <trans-unit id="no_permission_view"><source>You do not have permission to view this page.</source><target>Vous n'avez pas la permission de consulter cette page.</target></trans-unit>
+      <trans-unit id="no_permission_update"><source>You can view this page but you do not have permission to update packs.</source><target>Vous pouvez consulter cette page, mais vous n'avez pas la permission de modifier les packs.</target></trans-unit>
     </body>
   </file>
 </xliff>
